@@ -38,48 +38,40 @@ from:noreply@uber.com (subject:"Uber Eats" OR subject:"Uber の領収書")
 
 ## 実行手順
 
-### 1. 主データ（網羅）の更新 (Gmail経由)
-年別に本文付きメールを取得する（全期間でも安定）。
-
-```bash
-mkdir -p .ai-secretary/uber-analysis/raw_by_year
-for y in 2021 2022 2023 2024 2025 2026; do
-  y2=$((y+1))
-  q='from:noreply@uber.com (subject:"Uber Eats" OR subject:"Uber の領収書") after:'"$y"'/01/01 before:'"$y2"'/01/01'
-  gog --account <email> gmail messages search "$q" --all --max 100 --include-body --json \
-    | sed -n '/^{/,$p' \
-    > ".ai-secretary/uber-analysis/raw_by_year/uber_${y}.json"
-done
-```
-
-### 2. 補完データ（詳細）の更新 (Webスクレイピング)
-`.cookie/user-eats.cookie.json` がある場合、ブラウザから最新の注文詳細を取得する。
+### 1. 補完データ（詳細）の更新 (Webスクレイピング) - **推奨**
+`.cookie/user-eats.cookie.json` がある場合、ブラウザから最新の注文詳細を取得する。**このディレクトリ（`.ai-secretary/uber_eats_data`）を詳細データの SSoT (Single Source of Truth) とし、新規取得分は既存 ID との重複を確認した上で継ぎ足す。**
 
 1. **クッキーの変換と読み込み**
    `uber-eats-recommend` スキルの手順に従い、`.ai-secretary/uber-auth-state.json` を作成する。
 
-2. **最新注文履歴のキャプチャ**
-   `getPastOrdersV1` API のレスポンスを抽出する。
+2. **注文履歴のキャプチャ**
+   `getPastOrdersV1` API のレスポンスを抽出する。複数ページ（遡りたい分だけ）スクロールして取得する。
 
 ```bash
 playwright-cli -s=uber open --browser=firefox
 playwright-cli -s=uber state-load .ai-secretary/uber-auth-state.json
 playwright-cli -s=uber run-code "async page => {
-  const responsePromise = page.waitForResponse(r => r.url().includes('getPastOrdersV1') && r.status() === 200);
+  const responses = [];
+  page.on('response', async r => {
+    if (r.url().includes('getPastOrdersV1') && r.status() === 200) {
+      try { const j = await r.json(); responses.push(j); } catch(e) {}
+    }
+  });
   await page.goto('https://www.ubereats.com/jp/orders');
-  const response = await responsePromise;
-  return await response.json();
-}" > .ai-secretary/uber_eats_data/uber_eats_latest_raw.json
+  await page.waitForTimeout(5000);
+  for(let i=0; i<10; i++) { // 10回スクロール（約100件分）
+    await page.evaluate(() => window.scrollBy(0, 3000));
+    await page.waitForTimeout(4000);
+  }
+  return responses;
+}" > .ai-secretary/uber_eats_data/uber_eats_batch_raw.json
 ```
 
-3. **既存データへの継ぎ足し (SSoT管理)**
-   既存の全 JSON から `orderUuids` を集計し、重複しない新しい注文だけを新しい連番ファイルとして保存する。
+3. **既存データへの継ぎ足し**
+   `merge_batch.py` 等を使用して、重複しない新しい注文だけを連番ファイル（`uber_eats_NNN.json`）として保存する。
 
-```bash
-# 重複排除と新規ファイル保存の例（Python等で実装）
-# 既存の .ai-secretary/uber_eats_data/uber_eats_*.json を全走査
-# uber_eats_latest_raw.json 内の各注文 ID が未登録なら新規保存対象とする
-```
+### 2. 主データ（網羅）の更新 (Gmail経由)
+年別に本文付きメールを取得する（Web で取得しきれない長期履歴の補完用）。
 
 ### 3. 分析の実行
 分析ウィンドウを指定して集計する。
