@@ -29,6 +29,7 @@ description: 30分ごとに秘書モードで Yamato/Gmail/Tasks/Calendar を巡
 - API 操作は `--account <email>` を必ず付与する。
 - keyring backend が `file` のため、非 TTY では失敗することがある。
 - TTY でパスフレーズプロンプトが混ざる場合、JSON パース前に `sed -n '/^{/,$p'` を通す。
+- パスフレーズは空文字列としてエンターキーの押下送信が必要。
 - heartbeat の作業ディレクトリは `/home/yuiseki/Workspaces/.ai-secretary/heartbeat` を使う。
 - 初回実行時に以下を作成する。
 
