@@ -29,7 +29,7 @@ description: 30分ごとに秘書モードで Yamato/Gmail/Tasks/Calendar を巡
 - API 操作は `--account <email>` を必ず付与する。
 - keyring backend が `file` のため、非 TTY では失敗することがある。
 - TTY でパスフレーズプロンプトが混ざる場合、JSON パース前に `sed -n '/^{/,$p'` を通す。
-- パスフレーズは空文字列としてエンターキーの押下送信が必要。
+- 必ず .env に書かれた `GOG_KEYRING_PASSWORD` を export する。
 - heartbeat の作業ディレクトリは `/home/yuiseki/Workspaces/.ai-secretary/heartbeat` を使う。
 - 初回実行時に以下を作成する。
 
@@ -89,6 +89,8 @@ find /home/yuiseki/Workspaces/.ai-secretary/heartbeat/personalization-rules -nam
 
 - 明日以降のヤマト通知を確認する。
 - `.codex/skills/gog-calendar/SKILL.md` で明日の予定を確認する。
+- **既に受取日時を変更済みの場合はスキップする。**
+- **変更先の時間帯に他の予定がある場合は、勝手に変更せずユーザーに確認する。**
 - 受取時間にズレがあれば `.codex/skills/yamato-change/SKILL.md` で全件変更する。
 - 変更があった場合は `yuiseki@gmail.com` に完了通知を送る。
 
@@ -127,6 +129,7 @@ jq '.threads | sort_by(.date) | reverse'
 
 8. 未完了タスクをリマインドする。
 - `tasks list` で `needsAction` を列挙し、上位 5 件を通知する。
+- **未完了のToDoは `.ai-secretary/heartbeat/todos/yyyy/mm/dd/todo.md` にチェックボックス形式で書き溜め、完了したらチェックを入れる。**
 - 期限ありを優先して並べる。
 - リマインド本文には `title`、`due`、`updated` を含める。
 
@@ -173,5 +176,7 @@ jq '.threads | sort_by(.date) | reverse'
 
 - 書き込み系操作前に `--dry-run` を優先する。
 - 曖昧なメールは勝手にカレンダーへ入れず、まずタスク化する。
+- **ヤマトの受取日時変更時、既に変更済みであれば何もしない。また、変更先に予定が競合する場合は必ずユーザーに確認する。**
+- **ToDoの管理は Google Tasks と同期しつつ、`.ai-secretary/heartbeat/todos/` 下の markdown ファイルにも記録・更新する。**
 - 同一件名でも thread ID が違う場合は別件として扱う。
 - 失敗時は処理を止めず、失敗した対象とエラーを報告して次へ進む。
