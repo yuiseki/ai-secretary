@@ -13,6 +13,7 @@ Uber Eats の分析は次の二層で扱う。
   - `gog` で収集した Gmail 領収書を元に全期間の注文傾向を集計する。
 - 補完データ（詳細）: `.ai-secretary/uber_eats_data`
   - ubereats.com スクレイピング由来の注文詳細（メニュー明細）を持つ。
+  - **このディレクトリを詳細データの SSoT (Single Source of Truth) とし、新規取得分は既存 ID との重複を確認した上で継ぎ足す。**
   - カバレッジが主データより狭い可能性があるため、主データを置き換えずに補完として使う。
 
 出力は原則 `.ai-secretary/uber-analysis` 配下に保存する。
@@ -37,7 +38,8 @@ from:noreply@uber.com (subject:"Uber Eats" OR subject:"Uber の領収書")
 
 ## 実行手順
 
-1. 主データ（網羅）を更新する。年別に本文付きメールを取得する（全期間でも安定）。
+### 1. 主データ（網羅）の更新 (Gmail経由)
+年別に本文付きメールを取得する（全期間でも安定）。
 
 ```bash
 mkdir -p .ai-secretary/uber-analysis/raw_by_year
@@ -49,6 +51,38 @@ for y in 2021 2022 2023 2024 2025 2026; do
     > ".ai-secretary/uber-analysis/raw_by_year/uber_${y}.json"
 done
 ```
+
+### 2. 補完データ（詳細）の更新 (Webスクレイピング)
+`.cookie/user-eats.cookie.json` がある場合、ブラウザから最新の注文詳細を取得する。
+
+1. **クッキーの変換と読み込み**
+   `uber-eats-recommend` スキルの手順に従い、`.ai-secretary/uber-auth-state.json` を作成する。
+
+2. **最新注文履歴のキャプチャ**
+   `getPastOrdersV1` API のレスポンスを抽出する。
+
+```bash
+playwright-cli -s=uber open --browser=firefox
+playwright-cli -s=uber state-load .ai-secretary/uber-auth-state.json
+playwright-cli -s=uber run-code "async page => {
+  const responsePromise = page.waitForResponse(r => r.url().includes('getPastOrdersV1') && r.status() === 200);
+  await page.goto('https://www.ubereats.com/jp/orders');
+  const response = await responsePromise;
+  return await response.json();
+}" > .ai-secretary/uber_eats_data/uber_eats_latest_raw.json
+```
+
+3. **既存データへの継ぎ足し (SSoT管理)**
+   既存の全 JSON から `orderUuids` を集計し、重複しない新しい注文だけを新しい連番ファイルとして保存する。
+
+```bash
+# 重複排除と新規ファイル保存の例（Python等で実装）
+# 既存の .ai-secretary/uber_eats_data/uber_eats_*.json を全走査
+# uber_eats_latest_raw.json 内の各注文 ID が未登録なら新規保存対象とする
+```
+
+### 3. 分析の実行
+分析ウィンドウを指定して集計する。
 
 2. 主データを集計する（analysis window 指定）。
 
