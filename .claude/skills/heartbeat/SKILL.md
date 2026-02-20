@@ -1,6 +1,6 @@
 ---
 name: heartbeat
-description: 30分ごとに秘書モードで Yamato/Gmail/Tasks/Calendar を巡回し、(1) yamato-check で明日の受取時間整合、(2) メール確認、(3) メール由来のタスク追加・更新、(4) 必要な予定のカレンダー追加、(5) 未完了タスクのリマインドを実行する。Google Drive と Contacts は対象外。
+description: 30分ごとに秘書モードで Yamato/Gmail/Tasks/Calendar を巡回し、(1) yamato-check で明日の受取時間整合をチェック、(2) メール確認、(3) メール由来のタスク追加・更新の提案、(4) 必要な予定のカレンダー追加の提案、(5) 未完了タスクのリマインドを行う。書き込み操作は必ずユーザーの承認を得る。Google Drive と Contacts は対象外。
 ---
 
 # Heartbeat Assistant Runbook
@@ -17,11 +17,12 @@ description: 30分ごとに秘書モードで Yamato/Gmail/Tasks/Calendar を巡
 
 ## 実行順序（固定）
 
-1. `.codex/skills/yamato-check/SKILL.md` で明日のヤマト受取時間を確認・必要なら変更
+1. `.codex/skills/yamato-check/SKILL.md` で明日のヤマト受取時間を確認・必要なら変更を提案
 2. `.codex/skills/gog-gmail/SKILL.md` でメール確認
-3. `.codex/skills/gog-task/SKILL.md` でタスク追加・更新
-4. `.codex/skills/gog-calendar/SKILL.md` で予定追加
-5. 未完了タスクをリマインド
+3. メール内容からタスク追加・更新、予定追加の「提案リスト」を作成
+4. ユーザーに提案リストを提示し、承認を得る
+5. 承認された項目のみ、タスク・カレンダーに反映
+6. 未完了タスクをリマインド
 
 ## 前提
 
@@ -29,6 +30,7 @@ description: 30分ごとに秘書モードで Yamato/Gmail/Tasks/Calendar を巡
 - API 操作は `--account <email>` を必ず付与する。
 - keyring backend が `file` のため、非 TTY では失敗することがある。
 - TTY でパスフレーズプロンプトが混ざる場合、JSON パース前に `sed -n '/^{/,$p'` を通す。
+- 必ず .env に書かれた `GOG_KEYRING_PASSWORD` を export する。
 - heartbeat の作業ディレクトリは `/home/yuiseki/Workspaces/.ai-secretary/heartbeat` を使う。
 - 初回実行時に以下を作成する。
 
@@ -88,8 +90,10 @@ find /home/yuiseki/Workspaces/.ai-secretary/heartbeat/personalization-rules -nam
 
 - 明日以降のヤマト通知を確認する。
 - `.codex/skills/gog-calendar/SKILL.md` で明日の予定を確認する。
-- 受取時間にズレがあれば `.codex/skills/yamato-change/SKILL.md` で全件変更する。
-- 変更があった場合は `yuiseki@gmail.com` に完了通知を送る。
+- **既に受取日時を変更済みの場合はスキップする。**
+- 受取時間にズレがあれば、変更案をユーザーに提示し、承認を得てから `.codex/skills/yamato-change/SKILL.md` を実行する。
+- **変更先の時間帯に他の予定がある場合は、その旨をユーザーに伝えて判断を仰ぐ。**
+- 変更を行った場合は `yuiseki@gmail.com` に完了通知を送る。
 
 3. メール候補を取得する（広めに取得してローカルで絞る）。
 
@@ -104,30 +108,26 @@ find /home/yuiseki/Workspaces/.ai-secretary/heartbeat/personalization-rules -nam
 jq '.threads | sort_by(.date) | reverse'
 ```
 
-5. Personalization Rules を先に適用し、除外対象を落としてから各メールを分類して反映する。
-- タスク化条件:
+5. Personalization Rules を適用し、各メールを分類して「反映案（提案リスト）」を作成する。
+- タスク化提案条件:
   - 返信・提出・確認・対応などの行動が必要
   - 期限や依頼が含まれる
-- カレンダー化条件:
+- カレンダー化提案条件:
   - 明確な日時（開始・終了、または日付）を含む予定
 
-6. タスク反映（重複防止付き）。
-- 既存検索は notes の `heartbeat-thread:<threadId>` で照合する。
-- 既存未完了タスクがあれば `update`、なければ `add`。
-- notes 末尾に必ず以下を残す:
-  - `heartbeat-thread:<threadId>`
-  - `mail-subject:<subject>`
-  - `mail-date:<date>`
+6. ユーザーに提案リスト（タスク追加/更新、予定追加）を提示し、実行の是非を確認する。
 
-7. カレンダー反映（重複防止付き）。
-- `calendar search` で `heartbeat-thread:<threadId>` を検索し、存在しなければ `calendar create`。
-- 予定 description に `heartbeat-thread:<threadId>` を必ず入れる。
-- 時刻不明で日付のみ判定できる場合は `--all-day` で作成する。
+7. 承認された項目を反映する（重複防止付き）。
+- タスク反映:
+  - 既存検索は notes の `heartbeat-thread:<threadId>` で照合する。
+  - notes 末尾に必ず `heartbeat-thread:<threadId>` 等を残す。
+- カレンダー反映:
+  - `calendar search` で `heartbeat-thread:<threadId>` を検索し、重複を確認する。
 
 8. 未完了タスクをリマインドする。
 - `tasks list` で `needsAction` を列挙し、上位 5 件を通知する。
+- **未完了のToDoは `.ai-secretary/heartbeat/todos/yyyy/mm/dd/todo.md` にチェックボックス形式で書き溜め、完了したらチェックを入れる。**
 - 期限ありを優先して並べる。
-- リマインド本文には `title`、`due`、`updated` を含める。
 
 ## 実用コマンド例
 
@@ -159,18 +159,18 @@ jq '.threads | sort_by(.date) | reverse'
 各回の終了時に必ず次を報告する。
 
 - 実行時刻
-- yamato-check 対象件数
-- yamato-change 変更件数
-- 変更通知メール送信有無
+- yamato-check 確認対象件数
+- yamato-change 提案件数（および実行・スキップの結果）
 - 走査メール件数
-- タスク追加件数
-- タスク更新件数
-- 予定追加件数
+- タスク追加・更新の提案件数（および承認・反映結果）
+- 予定追加の提案件数（および承認・反映結果）
 - 未完了タスクの要約（最大 5 件）
 
 ## 運用ルール
 
-- 書き込み系操作前に `--dry-run` を優先する。
-- 曖昧なメールは勝手にカレンダーへ入れず、まずタスク化する。
-- 同一件名でも thread ID が違う場合は別件として扱う。
+- **全ての書き込み系操作（追加・更新・削除・設定変更）は、実行前に必ずユーザーに詳細を提示し、明示的な承認を得ること。**
+- 曖昧なメールは勝手にカレンダー案に入れず、まずタスク案として提示する。
+- **ヤマトの受取日時変更時、既に変更済みであれば何もしない。また、変更先に予定が競合する場合は必ずその情報を添えてユーザーに確認する。**
+- **ToDoの管理は Google Tasks と同期しつつ、`.ai-secretary/heartbeat/todos/` 下の markdown ファイルにも記録・更新する。**
 - 失敗時は処理を止めず、失敗した対象とエラーを報告して次へ進む。
+
