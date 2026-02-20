@@ -4,3 +4,6 @@ codex:
 
 gemini:
 	gemini --approval-mode yolo
+
+claude:
+	claude --dangerously-skip-permissions
