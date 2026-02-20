@@ -1,57 +1,46 @@
-# ファッション提案スキル
+---
+name: fashion-reccomend
+description: Google Keep の `__Fashion` ラベル付きノート、Google Calendar の「0 ゆいせき コーデ」履歴、当日の天気を組み合わせてコーディネートを提案し、カレンダーへ記録する。ユーザーが「今日のコーデを提案して」「天気に合わせた服を選んで」「コーデをカレンダーに残して」と依頼したときに使う。
+---
 
-Google Keep のファッションアイテム情報と、過去のコーディネート履歴、および当日の気温を組み合わせて、最適なファッションを提案し Google Calendar に記録する手順。
+# Fashion Recommend
 
-## 概要
-ユーザーの「今日のコーデを提案して」という依頼に対し、所有アイテム（Keep）と過去の傾向（Calendar）を分析し、天候に適したスタイルを提案します。
+## 事前確認
+- `gkeep` と `gog` を利用可能にする。
+- 実行前に `.env` から `GOG_KEYRING_PASSWORD` を読み込む。
+
+```bash
+export $(grep -v '^#' /home/yuiseki/Workspaces/.env | xargs)
+```
 
 ## 手順
 
-### 1. ファッションアイテム情報の取得
-Google Keep から `__Fashion` ラベルの付いたノートを取得し、アイテムの詳細（カテゴリ、印象、適応気温など）を把握します。
+1. `__Fashion` ラベルの Keep ノートを取得して候補アイテムを整理する。
 
 ```bash
 gkeep notes ls --all --json | jq -r '.[] | select(.labels[]? == "__Fashion")'
 ```
 
-### 2. カレンダー履歴の参照
-Google Calendar の「0 ゆいせき コーデ」カレンダーから過去の記録を参照し、書式や好みの傾向を確認します。
+2. 「0 ゆいせき コーデ」カレンダーの ID を特定し、過去記録を取得する。
 
 ```bash
-# .env からパスワードを読み込む
-export $(grep -v '^#' /home/yuiseki/Workspaces/.env | xargs)
-# カレンダーIDの特定
 CAL_ID=$(/home/yuiseki/bin/gog --account yuiseki@gmail.com calendar calendars --json | sed -n '/^{/,$p' | jq -r '.calendars[] | select(.summary=="0 ゆいせき コーデ") | .id')
-# 履歴の取得
 /home/yuiseki/bin/gog --account yuiseki@gmail.com calendar events ls "$CAL_ID" --from <開始日> --to <終了日> --json
 ```
 
-### 3. 当日の天候・気温の確認
-`weather-calendar` スキル等で取得した当日の最低・最高気温を確認し、適した厚さのアイテムを選定します。
-
-### 4. コーディネートの提案と記録
-選定したアイテムをそれぞれ**個別の終日予定**としてカレンダーに記録します。
-
-- **タイトル**: Keep のノートタイトルをそのまま使用
-- **形式**: アイテムごとに1つのイベントを作成
+3. 当日の最低気温と最高気温を確認し、厚みの合うアイテムを選ぶ。
+4. 選んだアイテムを Keep ノートタイトルそのままの終日予定として 1 アイテム 1 件で登録する。
 
 ```bash
-# .env からパスワードを読み込む
-export $(grep -v '^#' /home/yuiseki/Workspaces/.env | xargs)
-
-# アイテムAの登録
 /home/yuiseki/bin/gog --account yuiseki@gmail.com calendar create "$CAL_ID" \
   --summary "Keepノートタイトル1" \
   --from "<当日日付>" --to "<当日日付>" --all-day --force
 
-# アイテムBの登録
 /home/yuiseki/bin/gog --account yuiseki@gmail.com calendar create "$CAL_ID" \
   --summary "Keepノートタイトル2" \
   --from "<当日日付>" --to "<当日日付>" --all-day --force
 ```
 
-## 注意事項
-- 実行前に必ず `/home/yuiseki/Workspaces/.env` から `GOG_KEYRING_PASSWORD` を読み込む必要があります。
-- 気温が低い（10°C以下）場合は、防寒性の高いアウター（ファーブルゾン、ダウン等）を優先します。
-- 「絶対領域」や「地雷系」といった、ユーザー固有のファッションスタイルやこだわりを尊重した提案を行います。
-- `gkeep` と `gog` の両方の認証情報が必要です。
+## 運用ルール
+- 気温が 10°C 以下なら防寒性の高いアウターを優先する。
+- ユーザー固有のスタイル嗜好（例: 地雷系、絶対領域）を提案に反映する。
