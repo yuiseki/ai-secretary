@@ -15,29 +15,51 @@ description: Gyazo CLI を操作して過去のキャプチャ（画像、OCRテ
 
 ## 基本コマンド
 
-### 1. 画像の列挙
-直近の画像、または特定の「時間帯」を指定して画像を列挙します。
+### 1. 設定と認証確認
+```bash
+gyazo config set token <token>
+gyazo config get me            # 現在のユーザー情報を取得（疎通確認）
+```
+
+### 2. 画像の列挙
+直近の画像、または特定の属性（写真、アップロード済み）や時間帯を指定して列挙します。
 ```bash
 gyazo ls --limit 10
 gyazo ls --hour 2026-01-01-10  # 2026年1月1日 10時台の画像をキャッシュから取得
+gyazo ls --photos              # 位置情報を持つ画像（写真）のみ
+gyazo ls --uploaded            # gyazocli からアップロードした画像のみ
 ```
 
-### 2. 検索 (API経由)
-Gyazo API の検索機能を使用します。
+### 3. 検索
+Gyazo API の検索機能を使用します。デフォルトでキャッシュを使用しますが、`--no-cache` で強制的に最新化できます。
 ```bash
 gyazo search "date:2026-02-19" --json
 gyazo search "検索ワード" --json
 ```
 
-### 3. 画像詳細の取得 (OCR含む)
-特定の `image_id` の詳細情報を取得・表示します。
+### 4. 画像詳細の取得 (OCR/物体認識含む)
+特定の `image_id` の詳細情報を取得します。
 ```bash
-gyazo get <image_id>
+gyazo get <image_id> --ocr --objects
 ```
 
-### 4. 同期とインポート
+### 5. アップロード
 ```bash
-gyazo sync --days 7            # 昨日から遡って指定日数分のデータを同期・インデックス化
+gyazo upload image.png --title "メモ" --desc "詳細説明"
+```
+
+### 6. 使用状況の分析
+特定の日付（yyyy, yyyy-mm, yyyy-mm-dd）における使用アプリ、ドメイン、タグの統計を取得します。
+```bash
+gyazo apps --date 2026-02-20
+gyazo domains --date 2026-02
+gyazo tags --date 2026
+```
+
+### 7. 同期とインポート
+```bash
+gyazo sync --days 7            # 指定日数分を同期
+gyazo sync --date 2026-01      # 特定の月をまるごと同期
 gyazo import json <path>       # 既存の JSON キャッシュを一括インポート
 gyazo import hourly <path>     # 既存の hourly インデックスを一括インポート
 ```
@@ -45,7 +67,9 @@ gyazo import hourly <path>     # 既存の hourly インデックスを一括イ
 ## AI 秘書としての活用シナリオ
 - **時間軸での記憶探索:** 「元日の午前中に何してた？」に対し、`gyazo ls --hour 2026-01-01-09` 等を実行して視覚情報を得る。
 - **特定情報の深掘り:** 画像の OCR テキストから技術的なキーワードや商品名を抽出し、リサーチに役立てる。
+- **コンテキストの把握:** `apps` や `domains` を確認し、ユーザーがその時期にどのようなツールやサイトを使っていたか（何に集中していたか）を推測する。
 
 ## 運用ルール
-- 今日の画像は `sync` の対象外。最新の画像が必要な場合は `ls` や `search` を使用する。
+- 今日の画像は `sync` の対象外（デフォルト）。最新の画像が必要な場合は `ls` や `search` を使用する。
+- キャッシュが古そうな場合は `--no-cache` オプションを検討する。
 - 設定が未完了の場合は `gyazo config set token` を案内する。
