@@ -6,46 +6,46 @@ description: Gyazo CLI を操作して過去のキャプチャ（画像、OCRテ
 # Gyazo CLI Skill Runbook
 
 ## 概要
-`gyazo` CLI ツールを使用して、Gyazo に保存されたキャプチャ画像を操作します。OCR テキストやウィンドウタイトルなどのメタデータを含めて取得・検索が可能です。
+`gyazo` CLI ツールを使用して、Gyazo に保存されたキャプチャ画像を操作します。OCR テキストやウィンドウタイトルなどのメタデータを含めて取得・検索・時間軸での列挙が可能です。
 
 ## 前提
 - 実行バイナリ: `gyazo`
-- 認証: `gyazo config set token <token>` で設定済みであること（`~/.config/gyazo/credentials.json` に保存される）。
-- キャッシュ: `~/.cache/gyazocli/` に画像詳細が保存される。
+- 認証設定: `gyazo config set token <token>`（`~/.config/gyazo/credentials.json` に保存）。
+- キャッシュ: `~/.cache/gyazocli/` に画像詳細と時間軸インデックスが保存される。
 
 ## 基本コマンド
 
-### 1. 画像の一覧取得
-直近の画像、または特定の日付の画像を列挙します。
+### 1. 画像の列挙
+直近の画像、または特定の「時間帯」を指定して画像を列挙します。
 ```bash
 gyazo ls --limit 10
+gyazo ls --hour 2026-01-01-10  # 2026年1月1日 10時台の画像をキャッシュから取得
+```
+
+### 2. 検索 (API経由)
+Gyazo API の検索機能を使用します。
+```bash
 gyazo search "date:2026-02-19" --json
-```
-
-### 2. 画像詳細の取得 (OCR含む)
-特定の `image_id` の詳細情報を取得します。OCR 結果やキャプチャ時の URL、アプリケーション名が含まれます。
-```bash
-gyazo get <image_id>
-gyazo get <image_id> --json
-```
-
-### 3. 全文検索
-画像内のテキストやメタデータを検索します。
-```bash
 gyazo search "検索ワード" --json
 ```
 
-### 4. ローカル同期
-直近の画像をフェッチし、詳細情報（OCR等）をローカルキャッシュに蓄積します。
+### 3. 画像詳細の取得 (OCR含む)
+特定の `image_id` の詳細情報を取得・表示します。
 ```bash
-gyazo sync --max-pages 1
+gyazo get <image_id>
+```
+
+### 4. 同期とインポート
+```bash
+gyazo sync --days 7            # 昨日から遡って指定日数分のデータを同期・インデックス化
+gyazo import json <path>       # 既存の JSON キャッシュを一括インポート
+gyazo import hourly <path>     # 既存の hourly インデックスを一括インポート
 ```
 
 ## AI 秘書としての活用シナリオ
-- **過去の活動調査:** 「昨日の夕方に見ていたサイトは？」という問いに対し、`gyazo search "date:YYYY-MM-DD"` で画像メタデータを調査する。
-- **視覚情報の抽出:** 画像内の OCR テキストを `gyazo get` で取得し、内容を要約・分析する。
-- **リサーチの継続:** 以前キャプチャした商品や文献の情報を `gyazo search` で探し出す。
+- **時間軸での記憶探索:** 「元日の午前中に何してた？」に対し、`gyazo ls --hour 2026-01-01-09` 等を実行して視覚情報を得る。
+- **特定情報の深掘り:** 画像の OCR テキストから技術的なキーワードや商品名を抽出し、リサーチに役立てる。
 
 ## 運用ルール
-- 大量の画像を取得する場合は `--limit` や `sync` の `max-pages` を適切に制限し、レート制限（429）に配慮する。
-- JSON 出力を受け取る際は `jq` などを組み合わせて必要な情報のみを抽出する。
+- 今日の画像は `sync` の対象外。最新の画像が必要な場合は `ls` や `search` を使用する。
+- 設定が未完了の場合は `gyazo config set token` を案内する。
