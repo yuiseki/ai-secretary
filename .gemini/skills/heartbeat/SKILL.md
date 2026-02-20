@@ -18,11 +18,15 @@ description: 30分ごとに秘書モードで Yamato/Gmail/Tasks/Calendar を巡
 ## 実行順序（固定）
 
 1. `.codex/skills/yamato-check/SKILL.md` で明日のヤマト受取時間を確認・必要なら変更を提案
-2. `.codex/skills/gog-gmail/SKILL.md` でメール確認
-3. メール内容からタスク追加・更新、予定追加の「提案リスト」を作成
-4. ユーザーに提案リストを提示し、承認を得る
-5. 承認された項目のみ、タスク・カレンダーに反映
-6. 未完了タスクをリマインド
+2. `.codex/skills/gog-gmail/SKILL.md` および `.codex/skills/gog-calendar/SKILL.md` で情報を取得
+3. `.codex/skills/hatebu/SKILL.md` (`hatebu ls --json`) でブックマークを取得
+4. `.codex/skills/gyazo/SKILL.md` (`gyazo ls --limit 20 --json`) でキャプチャを取得
+5. `.codex/skills/gh-check-notification/SKILL.md` および `.codex/skills/gh-check-activity/SKILL.md` で GitHub 状況を取得
+6. 取得した全情報を `/home/yuiseki/Workspaces/.ai-secretary/heartbeat/cache/` に保存する
+7. メール内容からタスク追加・更新、予定追加の「提案リスト」を作成
+8. ユーザーに提案リストを提示し、承認を得る
+9. 承認された項目のみ、タスク・カレンダーに反映
+10. 未完了タスクをリマインド
 
 ## 前提
 
@@ -32,10 +36,12 @@ description: 30分ごとに秘書モードで Yamato/Gmail/Tasks/Calendar を巡
 - TTY でパスフレーズプロンプトが混ざる場合、JSON パース前に `sed -n '/^{/,$p'` を通す。
 - 必ず .env に書かれた `GOG_KEYRING_PASSWORD` を export する。
 - heartbeat の作業ディレクトリは `/home/yuiseki/Workspaces/.ai-secretary/heartbeat` を使う。
+- 取得した情報のキャッシュは `/home/yuiseki/Workspaces/.ai-secretary/heartbeat/cache/` を使う。
 - 初回実行時に以下を作成する。
 
 ```bash
-mkdir -p /home/yuiseki/Workspaces/.ai-secretary/heartbeat
+mkdir -p /home/yuiseki/Workspaces/.ai-secretary/heartbeat/cache
+mkdir -p /home/yuiseki/Workspaces/.ai-secretary/heartbeat/logs
 ```
 
 ## 状態ファイル（重複防止）
@@ -92,42 +98,51 @@ find /home/yuiseki/Workspaces/.ai-secretary/heartbeat/personalization-rules -nam
 - `.codex/skills/gog-calendar/SKILL.md` で明日の予定を確認する。
 - **既に受取日時を変更済みの場合はスキップする。**
 - 受取時間にズレがあれば、変更案をユーザーに提示し、承認を得てから `.codex/skills/yamato-change/SKILL.md` を実行する。
-- **変更先の時間帯に他の予定がある場合は、その旨をユーザーに伝えて判断を仰ぐ。**
 - 変更を行った場合は `yuiseki@gmail.com` に完了通知を送る。
 
-3. メール候補を取得する（広めに取得してローカルで絞る）。
+3. 情報を順番に取得し、`/home/yuiseki/Workspaces/.ai-secretary/heartbeat/cache/` に JSON 形式で保存する。
 
-```bash
-/home/yuiseki/bin/gog --account <email> gmail search 'in:inbox newer_than:2d' --max 50 --json \
-| sed -n '/^{/,$p'
-```
+- **Gmail:** `newer_than:1d` で最近のメールを取得
+  ```bash
+  /home/yuiseki/bin/gog --account <email> gmail search 'newer_than:1d' --json | sed -n '/^{/,$p' > cache/gmail.json
+  ```
+- **Calendar:** 今日の予定を取得
+  ```bash
+  /home/yuiseki/bin/gog --account <email> calendar list --json | sed -n '/^{/,$p' > cache/calendar.json
+  ```
+- **Hatebu:** 今日のブックマークを取得
+  ```bash
+  hatebu ls --json > cache/hatebu.json
+  ```
+- **Gyazo:** 直近の画像を取得
+  ```bash
+  gyazo ls --limit 20 --json > cache/gyazo.json
+  ```
+- **GitHub:** 通知と活動状況を取得
+  ```bash
+  gh api notifications > cache/gh_notifications.json
+  gh search prs --author "@me" --sort updated --limit 5 --json title,state,repository,updatedAt > cache/gh_prs.json
+  gh search issues --author "@me" --sort updated --limit 5 --json title,state,repository,updatedAt > cache/gh_issues.json
+  ```
 
-4. 日付で降順に再ソートし、未処理スレッドだけを対象にする。
+4. 取得した全情報を `/home/yuiseki/Workspaces/.ai-secretary/heartbeat/cache/YYYY-MM-DD-HHMM.json` としてアーカイブ保存する。
 
-```bash
-jq '.threads | sort_by(.date) | reverse'
-```
-
-5. Personalization Rules を適用し、各メールを分類して「反映案（提案リスト）」を作成する。
+5. Gmail の未処理スレッドを抽出し、Personalization Rules を適用して「反映案（提案リスト）」を作成する。
 - タスク化提案条件:
   - 返信・提出・確認・対応などの行動が必要
   - 期限や依頼が含まれる
 - カレンダー化提案条件:
   - 明確な日時（開始・終了、または日付）を含む予定
 
-6. ユーザーに提案リスト（タスク追加/更新、予定追加）を提示し、実行の是非を確認する。
+6. ユーザーに提案リスト（タスク追加/更新、予定追加）および各ソース（Hatebu, Gyazo, GitHub）のサマリーを提示し、実行の是非を確認する。
 
 7. 承認された項目を反映する（重複防止付き）。
-- タスク反映:
-  - 既存検索は notes の `heartbeat-thread:<threadId>` で照合する。
-  - notes 末尾に必ず `heartbeat-thread:<threadId>` 等を残す。
-- カレンダー反映:
-  - `calendar search` で `heartbeat-thread:<threadId>` を検索し、重複を確認する。
+- タスク反映: notes 末尾に必ず `heartbeat-thread:<threadId>` 等を残す。
+- カレンダー反映: `calendar search` で `heartbeat-thread:<threadId>` を検索し、重複を確認する。
 
 8. 未完了タスクをリマインドする。
 - `tasks list` で `needsAction` を列挙し、上位 5 件を通知する。
-- **未完了のToDoは `.ai-secretary/heartbeat/todos/yyyy/mm/dd/todo.md` にチェックボックス形式で書き溜め、完了したらチェックを入れる。**
-- 期限ありを優先して並べる。
+- **未完了のToDoは `.ai-secretary/heartbeat/todos/yyyy/mm/dd/todo.md` にチェックボックス形式で書き溜める。**
 
 ## 実用コマンド例
 
@@ -160,11 +175,13 @@ jq '.threads | sort_by(.date) | reverse'
 
 - 実行時刻
 - yamato-check 確認対象件数
-- yamato-change 提案件数（および実行・スキップの結果）
-- 走査メール件数
-- タスク追加・更新の提案件数（および承認・反映結果）
-- 予定追加の提案件数（および承認・反映結果）
+- yamato-change 提案件数
+- 走査メール件数（提案・承認結果を含む）
+- **Hatebu** 今日取得した件数
+- **Gyazo** 直近のキャプチャ数
+- **GitHub** 未読通知件数および活動更新
 - 未完了タスクの要約（最大 5 件）
+- キャッシュ保存先 (`cache/YYYY-MM-DD-HHMM.json`)
 
 ## 運用ルール
 
