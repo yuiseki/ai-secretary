@@ -1,3 +1,5 @@
+.mypy_cache
+
 .ai-secretary
 !.ai-secretary/.gitkeep
 
@@ -9,4 +11,7 @@
 .cookie/
 .cookies/
 
+private/
 repos/
+tmp/
+Trash/
