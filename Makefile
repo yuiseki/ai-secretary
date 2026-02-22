@@ -1,18 +1,9 @@
 
 codex:
-	codex --dangerously-bypass-approvals-and-sandbox
+	amem codex
 
 gemini:
-	gemini --approval-mode yolo
+	amem gemini
 
 claude:
-	claude --dangerously-skip-permissions
-
-heartbeat-codex:
-	codex exec "heartbeat" --dangerously-bypass-approvals-and-sandbox
-
-heartbeat-gemini:
-	gemini --approval-mode yolo -p "heartbeat"
-
-heartbeat-claude:
-	claude --dangerously-skip-permissions -p "heartbeat"
+	amem claude
