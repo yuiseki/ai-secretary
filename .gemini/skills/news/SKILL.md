@@ -10,30 +10,28 @@ description: |
 `newscli` を使用して、世界の多角的な視点（Global Perspectives）と日本の主要メディア（Domestic）から最新のニュースを取得します。フィードリストは `feeds.opml` で管理され、最新 3 件のヘッドラインを並列で高速に取得します。
 
 ## 前提
-- 実行ディレクトリ: `/home/yuiseki/Workspaces/repos/newscli`
-- 実行コマンド: `make` (tsx 経由で `src/index.ts` を実行)
-- フィード定義: `feeds.opml` (OPML 2.0 形式)
-- キャッシュ: `./cache/news.json` (30 分間保持)
+- 実行コマンド: `newscli`
+- キャッシュ: 30 分間保持
 
 ## 基本コマンド
 
 ### 1. すべてのニュースを取得
 全カテゴリ（Japan, International, Others）のヘッドラインを表示します。
 ```bash
-cd /home/yuiseki/Workspaces/repos/newscli && make run
+newscli
 ```
 
 ### 2. カテゴリを指定して取得
-引数（`--japan`, `--international`）を渡して、特定のカテゴリのみを表示します。
+引数を渡して、特定のカテゴリのみを表示します。
 ```bash
-make ls-japan          # 国内ニュースのみ表示
-make ls-international  # 国際ニュースのみ表示
+newscli --category japan          # 国内ニュースのみ表示
+newscli --category international  # 国際ニュースのみ表示
 ```
 
 ### 3. キャッシュを強制更新
 30 分間のキャッシュを無視して、最新の RSS を取得（同期）します。
 ```bash
-make sync
+newscli --sync
 ```
 
 ## AI 秘書としての活用シナリオ

@@ -18,8 +18,7 @@ export $(grep -v '^#' /home/yuiseki/Workspaces/.env | xargs)
 1. `weathercli` で指定座標の天気を JSON 取得する。
 
 ```bash
-cd /home/yuiseki/Workspaces/repos/weathercli
-npx tsx src/index.ts --lat 35.7126 --lon 139.7799 --json
+weathercli --lat 35.7126 --lon 139.7799 --json
 ```
 
 2. 「1 天気ログ」カレンダーの ID を取得する。
