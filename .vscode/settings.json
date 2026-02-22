@@ -1,5 +1,6 @@
 {
     "cSpell.words": [
+        "Agentic",
         "akihabaratenn",
         "amem",
         "analysys",
@@ -17,19 +18,25 @@
         "hatebucli",
         "Hatena",
         "INADA",
+        "ironclaw",
         "iwamoto",
         "Jazeera",
         "Kakuyasu",
         "Katsuya",
         "Meteo",
+        "mimiclaw",
         "MINAMI",
         "MINAMISENJU",
         "MINOWA",
         "moneycli",
         "MONEYFORWARD",
         "mypy",
+        "nanoclaw",
         "Negishi",
         "newscli",
+        "openclaw",
+        "picoclaw",
+        "safeclaw",
         "SENJU",
         "Shitaya",
         "Sukiya",
@@ -37,9 +44,11 @@
         "Tajima",
         "tasklist",
         "tasklists",
+        "tinyclaw",
         "tyougotterimenn",
         "ubereats",
         "weathercli",
-        "yamato"
+        "yamato",
+        "zeroclaw"
     ]
 }
