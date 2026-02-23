@@ -1,5 +1,8 @@
 {
     "cSpell.words": [
+        "abeat",
+        "acomm",
+        "acore",
         "Agentic",
         "akihabaratenn",
         "amem",
@@ -38,6 +41,7 @@
         "NTFY",
         "ollama",
         "openclaw",
+        "opencode",
         "picoclaw",
         "qwen",
         "safeclaw",
@@ -53,6 +57,7 @@
         "ubereats",
         "weathercli",
         "yamato",
+        "yuiclaw",
         "zeroclaw"
     ]
 }
