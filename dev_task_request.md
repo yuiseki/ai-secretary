@@ -27,28 +27,11 @@
 優先順で書かれているので順番に作業すること。
 
 - repos/yuiclaw の開発続行
-  - repos/acore で以下に対応
-    - [ ] gemini CLI
-    - [ ] codex CLI
-    - [ ] claude CLI
-    - [ ] opencode CLI
-    - 既に対応済みのものに関してはスキップしてOK（ただしテストカバレッジは向上させてほしい）
-  - repos/acomm で以下に対応
-    - [ ] ntfy
-    - [ ] Discord
-    - [ ] Slack
-    - [ ] TUI の /provider で上記4プロバイダーの切り替えに対応、プロバイダー候補を表示、上下キーで移動、エンターで切り替え実行
-      - [ ] 既にそのプロバイダーのセッションがある場合にはそれを復元してamemコンテキストを再注入だけしておく
-      - [ ] プロバイダーを跨いでの全会話履歴の共有はしない
-    - [ ] TUI の /model で選択中のプロバイダーのモデル候補を表示、上下キーで移動、エンターで切り替え実行
-    - [ ] TUI の /clear または /reset でセッションを作り直し（amemのコンテキスト再注入はする）
-    - 既に対応済みのものに関してはスキップしてOK（ただしテストカバレッジは向上させてほしい）
-  - repos/yuiclaw で以下に対応
-    - [ ] yuiclaw gemini で gemini プロバイダー選択状態で起動（前回の gemini セッションがある場合はそれを復元）
-    - [ ] yuiclaw codex で codex プロバイダー選択状態で起動（前回の codex セッションがある場合はそれを復元）
-    - [ ] yuiclaw claude で claude プロバイダー選択状態で起動（前回の claude セッションがある場合はそれを復元）
-    - [ ] yuiclaw opencode で opencode プロバイダー選択状態で起動（前回の opencode セッションがある場合はそれを復元）
-    - [ ] yuiclaw <provider> --new で既存のセッションを捨てて新しいセッションで起動
-  - repos/acore, repos/amem, repos/acomm, repos/abeat のドキュメントを確認、実装との齟齬がある場合はドキュメントをアップデート
-    - mermaid diagram を適切に使ってアーキテクチャをわかりやすく説明する
-      - ただし、図に頼りすぎないこと。言葉でも適切に説明すること
+  - repos/acomm の TUI を拡張する
+    - repos/_tui に clone されている git リポジトリのTUI実装を調査
+      - 共通点を整理
+        - 共通点のうち acomm TUI に不足している項目を列挙
+          - [ ] ここに列挙する
+      - 相違点を整理
+        - 相違点のうち acomm TUI に取り込む価値のありそうな項目を列挙
+          - [ ] ここに列挙する
