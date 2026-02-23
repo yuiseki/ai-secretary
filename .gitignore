@@ -15,3 +15,5 @@ private/
 repos/
 tmp/
 Trash/
+
+node_modules/
