@@ -4,36 +4,168 @@
 
 ## タスク概要
 
-優先順で書かれているので順番に作業すること。
+このセクションは、`repos/acomm/tui` を今後どう強化するかの「実行順の作業計画」です。下の調査メモ（`pi-tui` / `repos/_tui` 比較）を前提に、実装しやすい粒度（PR 単位）で整理しています。
 
-- repos/yuiclaw の開発続行
-  - repos/acomm の TUI を拡張する
-    - repos/_tui に clone されている git リポジトリのTUI実装を調査
-      - 調査対象: claude-code (React+Yoga WASM), codex (Ratatui/Rust), gemini-cli (Ink/React), opencode (Solid.js+@opentui)
-      - 共通点を整理
-        - 4つ全てが共通して実装している機能
-          - Markdown レンダリング（ヘッダー・コードブロック・リスト・表）
-          - コードブロックの Syntax Highlighting
-          - 処理中スピナー / ローディングアニメーション
-          - スクロール可能なメッセージ履歴
-          - スラッシュコマンド体系（/help, /clear, /model など）
-          - テーマ / カラーカスタマイズ（ダーク/ライト自動検出を含む）
-          - セッション履歴の保存・参照
-        - 共通点のうち acomm TUI に不足している項目を列挙
-          - [ ] **Markdown レンダリング**: メッセージ本文のマークダウンを整形表示する（現状は生テキスト表示のみ）
-          - [ ] **Syntax Highlighting**: コードブロック内のシンタックスカラーリング（言語識別付き）
-          - [ ] **スラッシュコマンド autocomplete**: 入力中に候補ドロップダウンを表示する（現状は補完なし）
-          - [ ] **仮想スクロール (VirtualizedList)**: 長い会話履歴を効率的に描画するための仮想化リスト
-          - [ ] **テーマシステム**: ダーク/ライト自動検出 + `/theme` コマンドによる切り替え
-      - 相違点を整理
-        - 各ツール固有の特徴的な機能
-          - claude-code: `@` ファイルメンション + .gitignore 対応オートコンプリート、プランモード (`/plan`)、Thinking blocks の折りたたみ表示、外部エディタ起動 (Ctrl+G)、プロンプトスタッシュ (Ctrl+S)
-          - codex: シマーアニメーション（ストリーミングテキストへの時間ベース光沢エフェクト、RGB ブレンド）、32種類 Syntax Highlighting テーマ (Dracula/Nord/Gruvbox/Catppuccin 等 syntect)、承認ダイアログ overlay、セッション JSON ログ
-          - gemini-cli: Google カラー 6色グラデーションスピナー、RewindViewer（会話履歴の任意の時点へ巻き戻し・フォーク）、バックグラウンドシェル統合 (Ctrl+B/L/K)、セッションブラウザ（ページネーション・検索・日付/件数ソート）
-          - opencode: コマンドパレット (Ctrl+P, fuzzy search)、セッション分岐/タイムラインナビゲーション、Knight Rider スキャナースピナー（光がバウンス+トレイル+ブルーム）、コスト/トークン使用量表示、セッション Markdown エクスポート、プロンプトスタッシュ複数件管理
-        - 相違点のうち acomm TUI に取り込む価値のありそうな項目を列挙
-          - [ ] **コスト/トークン使用量表示** (opencode 由来): ステータスバーにコンテキスト使用率 (%) や概算コスト (USD) をリアルタイム表示する
-          - [ ] **シマーアニメーション** (codex 由来): ストリーミング中のテキストに時間ベースの光沢エフェクトを重ねて「生成中」感を演出する
+### 前提（現状認識）
+
+- `repos/acomm/tui` には既に以下の基礎実装がある
+  - Markdown レンダリング（`renderMarkdown.ts`）
+  - Syntax Highlighting（`cli-highlight` 経由）
+  - スラッシュコマンドと簡易 autocomplete（`slashCommands.ts`, `SlashAutocomplete.tsx`）
+  - メッセージ仮想表示（`VirtualizedMessageList.tsx`）
+  - セッション履歴保存/参照（`sessionStorage.ts`, `SessionBrowser.tsx`）
+- 今回の計画は「未実装機能の追加」よりも、既存機能の品質・拡張性・テスト耐性を上げることを優先する
+- 開発方針
+  - TDD 優先（pure function / state machine は先に failing test）
+  - TUI の操作感は自動テストだけで完結しないため、節目ごとに手動確認項目を用意する
+  - `typecheck` / `test` を常に通す（ビルド健全性維持）
+
+### 最終目標（この計画の到達点）
+
+- `acomm/tui` の入力・表示・補完が CJK/emoji/ANSI を含んでも崩れにくい
+- slash 補完の基盤が provider 化され、将来の `@file` 補完を追加しやすい
+- 候補リスト UI が共通化され、`SlashAutocomplete` / `SelectionMenu` / `SessionBrowser` の重複が減る
+- 回帰テスト（特に ANSI wrap / resize / list selection / completion state）が増え、改修しやすくなる
+
+### 実施計画（優先順 / PR単位）
+
+#### Phase 0: ベースライン固定（現状機能を壊さないための土台）
+
+- [ ] `repos/acomm/tui` の現状機能を「計画対象」として明文化（README or ADR 追記）
+- [ ] 既存テストの棚卸しをして、今回触る領域の不足を可視化
+  - `textHelpers.ts`
+  - `VirtualizedMessageList.tsx`
+  - `SlashAutocomplete.tsx` / `slashCommands.ts`
+  - `SelectionMenu.tsx` / `SessionBrowser.tsx`
+- [ ] package 導入方針を先に決める（この時点では導入だけでも可）
+  - 優先候補: `strip-ansi`, `@xterm/headless`(dev), `fuzzysort` or `fzf`
+
+完了条件:
+- どのファイルをどの Phase で触るかが明記されている
+- `npm test` / `npm run typecheck` が green の基準点を記録できる
+
+#### Phase 1: ANSI/CJK 安全な表示基盤の強化（最優先）
+
+- [ ] `textHelpers.ts` を拡張して、表示系 pure utility を増やす
+  - ANSI を含む文字列の可視幅計算の前処理
+  - CJK/emoji を含む wrap の境界保証
+  - 将来の OSC8/装飾継続対応を見据えた関数分離
+- [ ] `VirtualizedMessageList.tsx` の line 分割を改善
+  - `split('\n')` 前提を段階的に解消
+  - Markdown + ANSI 出力の折り返し崩れを減らす
+- [ ] テスト追加（TDD）
+  - CJK/emoji 混在
+  - ANSI色付き行
+  - 長いコードブロック
+  - 罫線/背景色/下線 style leak 回帰（最低限のケース）
+- [ ] package 導入（必要に応じて）
+  - `strip-ansi`
+  - `ansi-regex`（前処理/解析が必要なら）
+
+完了条件:
+- ANSI付きメッセージで幅計算が破綻しない
+- `VirtualizedMessageList` の wrap 関連回帰テストが追加されている
+
+#### Phase 2: autocomplete 基盤の抽象化（slash 専用実装から脱却）
+
+- [ ] `slashCommands.ts` の補完ロジックを provider interface 化
+  - 例: `AutocompleteProvider`, `CompletionItem`
+  - slash command の解析と候補生成を UI から分離
+- [ ] fuzzy search の導入
+  - 候補: `fuzzysort`（軽量・同期）または `fzf`（高品質）
+  - まず slash command 補完に限定導入
+- [ ] 補完 state machine を pure 化してテスト追加
+  - `Tab`, `Enter`, `Esc`, `↑`, `↓`
+  - 候補なし / 1件 / 複数件
+  - 大文字小文字 / 部分一致 / typo 耐性（fuzzy導入時）
+- [ ] `SlashAutocomplete.tsx` は表示専用へ寄せる
+
+完了条件:
+- slash 補完のロジックが UI コンポーネントから分離される
+- fuzzy 検索導入後も既存 slash command の振る舞いが壊れない
+
+#### Phase 3: 候補リスト UI の共通化（Overlay/List 系の整理）
+
+- [ ] `SlashAutocomplete.tsx` と `SelectionMenu.tsx` の共通化計画を実装に落とす
+  - まずは共通 `ListOverlay` か `SelectableList` を新設
+  - 項目の label / description / selected 表示を統一
+- [ ] `SessionBrowser.tsx` の表示ロジックを共通部品に寄せる（全部一度にやらない）
+  - 初回は「選択行描画 + スクロール表示」のみ共有でもよい
+- [ ] no-match 表示、件数表示、選択位置表示 `(n/total)` を段階的に導入
+- [ ] テスト追加
+  - 選択インデックス境界
+  - 表示件数超過時の描画
+  - description あり/なし
+
+完了条件:
+- 候補UIの重複コードが減り、今後 `@file` 補完を追加しやすい構造になる
+
+#### Phase 4: `MultilineInput` の編集体験を強化（操作感の改善）
+
+- [ ] `MultilineInput.tsx` のロジックを pure helper / reducer に分離（先にテスト）
+- [ ] 最小セットとして以下を導入
+  - 履歴（重複抑制つき）
+  - undo（少なくとも atomic paste undo を含む）
+  - word 単位移動 / word delete（優先度は move > delete でも可）
+- [ ] 可能なら bracketed paste を検討（Ink 制約を見ながら）
+- [ ] 手動確認ゲート（必須）
+  - CJK入力
+  - 複数行編集
+  - 長文 paste → undo
+  - slash 補完と入力編集の干渉確認
+
+完了条件:
+- 実用上の不満（誤操作で戻せない、長文貼り付けが辛い）が減る
+- 手動確認結果を記録できる
+
+#### Phase 5: セッションブラウザ / 補完の検索体験を向上
+
+- [ ] `SessionBrowser` に検索（filter）を導入するか設計だけ先行で決める
+- [ ] `Phase 2` の fuzzy 基盤を SessionBrowser / model picker に横展開
+- [ ] 表示情報の改善（時刻/provider/prompt の truncation 戦略見直し）
+- [ ] テスト追加
+  - フィルタ一致/不一致
+  - 長文 prompt truncation
+  - 端末幅変更の境界
+
+完了条件:
+- セッション探索の操作回数が減る（検索 or 選択 UX が改善）
+
+#### Phase 6: 回帰テスト強化（端末表示寄り）
+
+- [ ] `@xterm/headless` を devDependency として導入
+- [ ] test rig を作成（Ink 出力 or utility 出力を terminal に流して検証）
+- [ ] 回帰テスト追加
+  - resize / shrink
+  - ANSI style reset / leak
+  - wrap with CJK + ANSI
+  - overlay/list 表示の崩れ
+- [ ] 今後のバグ修正時の再発防止テンプレートを作る（再現ケース→固定テスト）
+
+完了条件:
+- 表示崩れ系の修正を「再現テスト付き」で進められる状態になる
+
+### 後回し（この計画では優先度低）
+
+- [ ] `@file` 補完本実装（provider 基盤まで先に作る）
+- [ ] コスト/トークン使用量表示（bridge/protocol 側データ設計が先）
+- [ ] シマーアニメーション等の演出強化
+- [ ] `shiki` 系へのハイライト基盤置換（現行 `cli-highlight` で当面十分）
+- [ ] テーマシステム全面刷新（まず表示崩れと入力UXを優先）
+
+### 1スプリント目の推奨着手順（最小で価値が出る順）
+
+- [ ] PR1: `strip-ansi` 導入 + `textHelpers`/wrap テスト拡張（CJK/ANSI）
+- [ ] PR2: `VirtualizedMessageList` の wrap 改善（Phase 1 完了）
+- [ ] PR3: autocomplete provider 抽象化 + slash fuzzy（`fuzzysort` or `fzf`）
+- [ ] PR4: `SlashAutocomplete` / `SelectionMenu` 共通 list UI 化
+
+### レビュー観点（実装前レビューで見てほしい点）
+
+- [ ] `fzf` と `fuzzysort` の選定（性能・実装コスト・ハイライト表現）
+- [ ] `Phase 1` でどこまで ANSI を厳密に扱うか（OSC8 までやるか、SGR優先か）
+- [ ] `MultilineInput` 強化の範囲（undo/paste まで先にやるか、履歴だけ先にやるか）
+- [ ] `@xterm/headless` 導入タイミング（Phase 1 先行 or Phase 6 でまとめるか）
 
 
 ## 追加調査メモ: `repos/_claw/pi-mono/packages/tui` （`repos/acomm/tui` 参考実装）
