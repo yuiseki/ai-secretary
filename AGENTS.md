@@ -30,4 +30,5 @@ These rules apply only to this repository (`/home/yuiseki/Workspaces`) and its s
 
 When meaningful work is completed in this repository, append a short activity entry using:
 
-- `amem keep "<what was done>" --kind activity --source <codex|gemini|claude>`
+- `source ~/.config/yuiclaw/.env; amem keep "<what was done>" --kind activity --source <codex|gemini|claude>`
+- Load `~/.config/yuiclaw/.env` before `amem keep` so Discord mirroring via `acomm --discord --agent` can work when configured.

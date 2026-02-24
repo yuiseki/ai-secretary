@@ -44,9 +44,9 @@ amem which --json
 ### 3. 追記（高速）
 
 ```bash
-amem keep "東京で散歩した"
-amem keep "ミーティングメモ" --kind inbox
-amem keep "振り返り" --date 2026-02-21 --source assistant
+source ~/.config/yuiclaw/.env; amem keep "東京で散歩した"
+source ~/.config/yuiclaw/.env; amem keep "ミーティングメモ" --kind inbox
+source ~/.config/yuiclaw/.env; amem keep "振り返り" --date 2026-02-21 --source assistant
 ```
 
 ### 4. 検索
@@ -132,7 +132,7 @@ amem claude --resume-only
 ## 推奨運用フロー
 
 1. 初回: `amem init`
-2. 日次記録: `amem keep "..."`
+2. 日次記録: `source ~/.config/yuiclaw/.env; amem keep "..."`
 3. 作業前確認: `amem today`
 4. 必要時検索: `amem search ...`（または `amem remember ...`）
 5. 定期同期: `amem index`
