@@ -106,24 +106,28 @@ qdbus org.kde.kglobalaccel /component/kwin org.kde.kglobalaccel.Component.shortc
 ### 呼び出し（タイムアウト推奨）
 
 `qdbus` が環境によって待ち続けることがあるため `timeout` を付ける。
+また、実運用では `wmctrl -a` より `xdotool windowactivate --sync` の方が KWin ショートカット反映が安定する場合がある。
 
 ```bash
 export DISPLAY=:1
 WIN_ID=0x...
-wmctrl -i -a "$WIN_ID" || true
+xdotool windowactivate --sync "$WIN_ID"
 timeout 2s qdbus org.kde.kglobalaccel /component/kwin \
   org.kde.kglobalaccel.Component.invokeShortcut \
-  'Window Quick Tile Bottom Right' '' || true
+  'Window Quick Tile Bottom Right' default || true
 ```
 
 ### 注意
 
 - `wmctrl -i -a "$WIN_ID"` は前面化用（`-a` に引数が必要）
 - `wmctrl -i -r "$WIN_ID" -a` のような組み合わせは誤用になりやすい
+- `invokeShortcut` は **成功しても出力が空** のことがある。必ず `wmctrl -lG` / `xdotool getwindowgeometry` で結果確認する
+- `Window Quick Tile Top/Bottom/Left/Right` 系は環境やタイミングで反応ムラがあるため、1回で動かないときは再前面化して再試行する
 
 ## 全画面化 / 復元（推奨: EWMH 直接）
 
 KWin ショートカットより `wmctrl` の EWMH fullscreen state 切替が安定する場合がある。
+（実運用で `Window Fullscreen` ショートカット呼び出しが no-op だったケースあり）
 
 ### 10 秒だけ全画面化して戻す
 
@@ -147,6 +151,7 @@ wmctrl -lG | awk -v id="$WIN_ID" '$1==id {print}'
 
 - 全画面解除後、**元のタイルサイズに完全復元されない**ことがある（KWin が別サイズで復元）
 - 必要に応じて Quick Tile を再適用する
+- ただし Quick Tile 再適用も効かない場合がある。最終結果は「実際の geometry を再取得して報告」を優先する
 
 ## 実務で使う確認コマンド集
 
@@ -171,6 +176,8 @@ identify /tmp/desktop-layout-*.png  # ImageMagick があれば
   - KWin タイル状態の可能性。Quick Tile を使う
 - `qdbus` が反応しない/待ち続ける
   - `timeout 2s ... || true` を使う
+- `qdbus` は返り値なしでも成功することがある
+  - 出力ではなく window geometry/state の変化で判定する
 - 位置は変わらないがサイズだけ変わる / その逆
   - WM が制約している。操作後に必ず再確認して結果ベースで報告
 - `DISPLAY` が `localhost:10.0` になっている
@@ -182,4 +189,3 @@ identify /tmp/desktop-layout-*.png  # ImageMagick があれば
 - 操作前後の座標・サイズ
 - `_NET_WM_STATE_FULLSCREEN` の有無（全画面操作時）
 - 必要ならスクリーンショット保存先
-
