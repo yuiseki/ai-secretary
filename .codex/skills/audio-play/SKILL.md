@@ -1,11 +1,11 @@
 ---
 name: audio-play
-description: "KDE Plasma / PipeWire(PulseAudio互換) 環境で通知音・効果音・テストトーン・VOICEVOX発話（VOICEBOX表記の依頼含む）などの音声を確実に再生する。ユーザーが『通知音を鳴らして』『音を出して確認して』『VOICEVOXで喋らせて』など依頼したときに使う。"
+description: "KDE Plasma / PipeWire(PulseAudio互換) 環境で通知音・効果音・テストトーン・VOICEVOX発話（VOICEBOX表記含む）を確実に再生する。現在は Tauri 字幕オーバーレイPoC (IPC) を使った字幕付き再生/通知を主経路とし、paplay/notify-send をフォールバックとして扱う。"
 ---
 
 # audio-play Skill
 
-KDE Plasma デスクトップ上で音を再生するためのスキルです。`notify-send` の通知表示だけでなく、`paplay` / `pw-play` / `canberra-gtk-play` / VOICEVOX API を使った再生まで扱います。
+KDE Plasma デスクトップ上で音を再生するためのスキルです。現在は `tmp/tauri-caption-overlay-poc` の IPC (`127.0.0.1:47832`) を使った字幕付き再生/通知を主経路とし、`paplay` / `pw-play` / `canberra-gtk-play` / `notify-send` はフォールバック/切り分け用途として扱います。
 
 この環境では「通知は出るが音が聞こえない」問題が起きやすいため、**音の出力先（sink）を明示して検証する**のが基本です。
 
@@ -15,6 +15,7 @@ KDE Plasma デスクトップ上で音を再生するためのスキルです。
 - 音声基盤: PipeWire（PulseAudio 互換）
 - よく使うコマンド:
   - `pactl`, `wpctl`
+  - `tmux`（overlay 起動確認）
   - `paplay`（最優先）
   - `notify-send`
   - `canberra-gtk-play`（通知風効果音）
@@ -24,7 +25,8 @@ KDE Plasma デスクトップ上で音を再生するためのスキルです。
 ## 重要ルール
 
 - まず **音の経路確認**を行う（`pactl info`, `pactl list short sinks`）
-- 重要な再生は `paplay --device=<sink>` で **sink を明示**する
+- まず `Tauri` 字幕オーバーレイ IPC を使う（字幕と音声の同期を確保）
+- 重要な再生は `paplay --device=<sink>` で **sink を明示**する（フォールバック/切り分け）
 - `notify-send` 単体で「通知音が鳴る」と期待しない
   - 通知表示はできても、音は別コマンドが必要なことがある
 - `canberra-gtk-play` は `DISPLAY` が必要（`DISPLAY=:1`）
@@ -41,9 +43,38 @@ KDE Plasma デスクトップ上で音を再生するためのスキルです。
 ## 基本ワークフロー（推奨）
 
 1. 出力先（sink）確認
-2. 明確なテスト音で再生確認（`paplay` + 明示 sink）
-3. 必要に応じて `notify-send` と組み合わせる
-4. VOICEVOX 利用時は API 生存確認 → WAV 生成 → `paplay` 再生
+2. Tauri 字幕オーバーレイ IPC の起動確認
+3. 明確なテスト音で再生確認（`paplay` + 明示 sink）
+4. 必要に応じて `notify-send` と組み合わせる
+5. VOICEVOX 利用時は API 生存確認 → WAV 生成 → overlay IPC（失敗時 `paplay`）
+
+## Tauri 字幕オーバーレイ（主経路）
+
+字幕付きの通知/発話は `tmp/tauri-caption-overlay-poc` を使う。`voice_command_loop` 連携時は tmux スクリプトで管理される。
+
+```bash
+tmp/whispercpp-listen/tmux_listen_only.sh status
+tmp/whispercpp-listen/tmux_listen_only.sh start-overlay
+tmp/whispercpp-listen/tmux_listen_only.sh logs-overlay
+```
+
+期待:
+
+- `overlay: RUNNING`
+- `overlay endpoint ready: 127.0.0.1:47832`
+
+### IPC でテキスト通知（字幕のみ）
+
+```bash
+python3 - <<'PY'
+import json, socket
+payload = {"type": "notify", "text": "通知テストです", "duration_ms": 1800}
+with socket.create_connection(("127.0.0.1", 47832), timeout=5) as s:
+    s.sendall((json.dumps(payload, ensure_ascii=False) + "\n").encode("utf-8"))
+    s.shutdown(socket.SHUT_WR)
+    print(s.recv(4096).decode("utf-8").strip())
+PY
+```
 
 ## 出力先（sink）確認
 
@@ -65,9 +96,9 @@ wpctl status
 - `State: SUSPENDED` はアイドル時には普通
 - `VacuumTube` の音がテレビから出ているなら、同じ HDMI sink を使うとよい
 
-## 通知表示 + 音（実用パターン）
+## 通知表示 + 音（フォールバック）
 
-`notify-send` は通知表示、音は別コマンドで鳴らす。
+`notify-send` は通知表示、音は別コマンドで鳴らす。字幕オーバーレイが使えない場合のフォールバック。
 
 ```bash
 export DISPLAY=:1
@@ -147,13 +178,13 @@ curl -fsS http://127.0.0.1:50021/version
 curl -fsS http://127.0.0.1:50021/speakers | jq '.[].name'
 ```
 
-### 3) 音声クエリ生成 → 合成 → 再生
+### 3) 音声クエリ生成 → 合成 → overlay IPC 再生（推奨）
 
-以下は `speaker=3` の例（環境差があるため、必要なら `/speakers` を見て選ぶ）。
+以下は `speaker=89`（Voidoll）の例。まずは overlay IPC へ `speak` を送る。
 
 ```bash
 TEXT='作業が終わりました'
-SPEAKER=3
+SPEAKER=89
 OUT=/tmp/voicevox-notify.wav
 TEXT_ENC=$(python3 -c 'import sys, urllib.parse; print(urllib.parse.quote(sys.argv[1]))' "$TEXT")
 
@@ -167,13 +198,21 @@ curl -fsS -X POST \
   --data-binary @/tmp/voicevox-query.json \
   > "$OUT"
 
-paplay --device=alsa_output.pci-0000_04_00.1.hdmi-stereo "$OUT"
+python3 - <<'PY' "$TEXT" "$OUT"
+import json, socket, sys
+text, wav = sys.argv[1], sys.argv[2]
+payload = {"type":"speak","text": text, "wav_path": wav, "wait": True}
+with socket.create_connection(("127.0.0.1", 47832), timeout=5) as s:
+    s.sendall((json.dumps(payload, ensure_ascii=False) + "\n").encode("utf-8"))
+    s.shutdown(socket.SHUT_WR)
+    print(s.recv(4096).decode("utf-8").strip())
+PY
 ```
 
 実務メモ:
 
 - URL エンコードが必要（日本語テキスト）
-- `paplay` の再生先は sink 明示推奨
+- `Tauri` overlay が落ちている場合は `paplay --device=<sink> "$OUT"` で切り分ける
 - `VOICEVOX` 側の合成成功と、再生成功は別問題（出力先違いで無音に見える）
 
 ## 出力先を切り替えて試す（必要時のみ）
@@ -195,6 +234,9 @@ paplay /usr/share/sounds/freedesktop/stereo/bell.oga
 
 - `notify-send` は表示されるが音が鳴らない
   - `notify-send` 単体を諦める。`paplay` / `canberra-gtk-play` を併用
+- overlay 字幕は出るが音が出ない
+  - `tmp/whispercpp-listen/tmux_listen_only.sh logs-overlay` を確認
+  - `paplay --device=<sink>` で WAV を直接再生して切り分け
 - `canberra-gtk-play` が `Cannot open display`
   - `DISPLAY=:1` を付ける
 - `paplay` は成功するが聞こえない
@@ -218,6 +260,8 @@ paplay /usr/share/sounds/freedesktop/stereo/bell.oga
 ## ローカル参照（この環境で有用）
 
 - freedesktop 効果音: `/usr/share/sounds/freedesktop/stereo/`
+- 字幕オーバーレイ PoC: `tmp/tauri-caption-overlay-poc`
+- 音声待ち受け tmux 管理: `tmp/whispercpp-listen/tmux_listen_only.sh`
 - 典型 sink（実測例）:
   - `alsa_output.pci-0000_04_00.1.hdmi-stereo`（HDMI / テレビ）
   - `alsa_output.pci-0000_0c_00.4.iec958-stereo`（S/PDIF）

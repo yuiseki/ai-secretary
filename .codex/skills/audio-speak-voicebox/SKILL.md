@@ -1,35 +1,39 @@
 ---
 name: audio-speak-voicebox
-description: "この KDE Plasma / PipeWire 環境で VOICEBOX（VOICEVOX）を使ってオーナーに音声で話しかける。VOICEVOX API(50021) の確認、音声合成、HDMI sink への再生、volumeScale=2.5 の運用、ハマりポイント切り分けを行う。ユーザーが『VOICEBOXで話しかけて』『VOICEVOXで喋って』など依頼したときに使う。"
+description: "この KDE Plasma / PipeWire 環境で VOICEBOX（VOICEVOX）を使ってオーナーに音声で話しかける。VOICEVOX API(50021) でWAV合成し、Tauri字幕オーバーレイPoC (IPC) 経由で音声+字幕を同期再生する。必要時のみ paplay 直再生へフォールバックする。"
 ---
 
 # audio-speak-voicebox Skill
 
 このシステムで `VOICEBOX`（実体は `VOICEVOX`）を使い、オーナーに音声で話しかけるための専用スキルです。
 
-目的は「合成に成功する」ではなく、**オーナーに実際に聞こえる**ことです。  
-そのため、VOICEVOX API だけでなく、再生先（PipeWire/PulseAudio sink）まで含めて扱います。
+目的は「合成に成功する」ではなく、**オーナーに実際に聞こえる + 字幕が同期表示される**ことです。  
+この環境では、`VOICEVOX API` でWAVを作り、`tmp/tauri-caption-overlay-poc` の IPC サーバーへ渡して再生するのを主経路とします。
 
 ## 前提
 
 - デスクトップ: KDE Plasma（X11）
 - 音声基盤: PipeWire（PulseAudio 互換）
 - VOICEVOX API: `http://127.0.0.1:50021`
-- 推奨再生コマンド: `paplay`
+- 推奨再生経路: `Tauri caption overlay IPC`（主経路）
+- フォールバック再生コマンド: `paplay`
 - よく使うコマンド:
   - `curl`
   - `jq`
   - `pactl`
-  - `paplay`
+  - `paplay`（フォールバック）
+  - `tmux`（オーバーレイ起動管理）
   - `python3`（URLエンコード補助）
 
 ## この環境の実測値（重要）
 
 - `VOICEVOX` バージョン: `0.25.1`（実測）
+- 字幕オーバーレイ IPC:
+  - `127.0.0.1:47832`（`tmp/tauri-caption-overlay-poc`）
 - `Default Sink`（実測）:
   - `alsa_output.pci-0000_04_00.1.hdmi-stereo`（HDMI / テレビ）
 - 話者ID:
-  - `speaker=3` で再生成功実績あり
+  - `speaker=89`（Voidoll）を既定運用
 - 既定の音量方針:
   - `volumeScale=2.5`
 
@@ -43,7 +47,8 @@ description: "この KDE Plasma / PipeWire 環境で VOICEBOX（VOICEVOX）を�
 
 - `VOICEBOX` と言われても実処理は `VOICEVOX API` を使う
 - まず `:50021` が生きているか確認する
-- 再生先は `paplay --device=<sink>` で明示する
+- まず `Tauri` 字幕オーバーレイ IPC を使う（字幕と音声の同期を確保）
+- `paplay --device=<sink>` はデバッグ/フォールバック経路
 - 合成成功と再生成功は別問題
   - WAV が生成できても sink が違うと聞こえない
 - 再生後は必ずオーナーに「聞こえたか」を確認する（手動検証）
@@ -58,12 +63,13 @@ description: "この KDE Plasma / PipeWire 環境で VOICEBOX（VOICEVOX）を�
 ## 基本ワークフロー（推奨）
 
 1. VOICEVOX API 生存確認
-2. 出力先（sink）確認
-3. 音声クエリ生成
-4. `volumeScale=2.5` を適用
-5. WAV 合成
-6. HDMI sink に `paplay` で再生
-7. オーナーに聞こえたか確認
+2. Tauri 字幕オーバーレイ起動確認（IPC）
+3. 出力先（sink）確認（フォールバック/デバッグ用）
+4. 音声クエリ生成
+5. `volumeScale=2.5` を適用
+6. WAV 合成
+7. IPC で `text + wav_path` をオーバーレイへ送信（同期再生）
+8. オーナーに聞こえたか確認
 
 ## 1) VOICEVOX API 生存確認
 
@@ -76,7 +82,22 @@ curl -fsS http://127.0.0.1:50021/version
 - VOICEVOX アプリが起動していない
 - ポート `50021` が開いていない
 
-## 2) 出力先（sink）確認
+## 2) Tauri 字幕オーバーレイ起動確認（IPC）
+
+まず字幕オーバーレイが tmux 管理で起動していることを確認する。
+
+```bash
+tmp/whispercpp-listen/tmux_listen_only.sh status
+tmp/whispercpp-listen/tmux_listen_only.sh start-overlay
+tmp/whispercpp-listen/tmux_listen_only.sh logs-overlay
+```
+
+期待:
+
+- `overlay: RUNNING`
+- `overlay endpoint ready: 127.0.0.1:47832`
+
+## 3) 出力先（sink）確認（フォールバック/デバッグ用）
 
 VacuumTube の音がテレビから出ているなら、同じ HDMI sink を使う。
 
@@ -89,15 +110,15 @@ pactl list short sinks
 
 - `alsa_output.pci-0000_04_00.1.hdmi-stereo` を優先
 
-## 3) オーナー向け発話（推奨テンプレート）
+## 4) オーナー向け発話（推奨テンプレート）
 
-### 最小実用コマンド（`volumeScale=2.5`）
+### 最小実用コマンド（`volumeScale=2.5`, Tauriオーバーレイ経由）
 
 ```bash
 set -euo pipefail
 
-TEXT='ユイさま、こんにちは。VOICEVOXの音声テストです。'
-SPEAKER=3
+TEXT='承知しました、動作確認をしています。'
+SPEAKER=89
 VOLUME_SCALE=2.5
 SINK=$(pactl info | sed -n 's/^Default Sink: //p')
 OUT=/tmp/voicevox-owner-speak.wav
@@ -116,8 +137,21 @@ curl -fsS -X POST \
   -H 'Content-Type: application/json' \
   --data-binary @"$Q" > "$OUT"
 
-paplay --device="$SINK" "$OUT"
+python3 - <<'PY' "$TEXT" "$OUT"
+import json, socket, sys
+text, wav = sys.argv[1], sys.argv[2]
+payload = {"type":"speak","text": text, "wav_path": wav, "wait": True}
+with socket.create_connection(("127.0.0.1", 47832), timeout=5) as s:
+    s.sendall((json.dumps(payload, ensure_ascii=False) + "\n").encode("utf-8"))
+    s.shutdown(socket.SHUT_WR)
+    print(s.recv(4096).decode("utf-8").strip())
+PY
 ```
+
+補足:
+
+- `SINK` はこのテンプレートでは直接使わない（Tauri 側が再生）
+- `paplay` は IPC が死んでいるときのフォールバック
 
 ### 発話テンプレート例（敬語・短め）
 
@@ -126,9 +160,9 @@ paplay --device="$SINK" "$OUT"
 - `ユイさま、5分ほど休憩しませんか。`
 - `ユイさま、確認をお願いします。`
 
-## 4) 話者IDの選び方
+## 5) 話者IDの選び方
 
-まずは `speaker=3` を使う（この環境で再生実績あり）。
+この環境の既定は `speaker=89`（Voidoll）。
 
 必要なら一覧確認:
 
@@ -141,7 +175,7 @@ curl -fsS http://127.0.0.1:50021/speakers | jq '.[].name'
 - 話者名と style ID は環境差がある
 - 迷ったら「一覧確認 → 1つ選ぶ → 実再生で確認」
 
-## 5) 音量ポリシー（この環境）
+## 6) 音量ポリシー（この環境）
 
 この環境ではシステム音量最大でも、VOICEVOX 音声が体感で小さく感じることがある。  
 そのため、このスキルでは既定を `volumeScale=2.5` とする。
@@ -165,7 +199,7 @@ curl -fsS http://127.0.0.1:50021/speakers | jq '.[].name'
 - ユーザー発話の `VOICEBOX` は `VOICEVOX` を意味していることがある
 - 実装上は `http://127.0.0.1:50021` を使う
 
-### 2. 合成は成功したのに聞こえない
+### 2. 合成は成功したのに聞こえない（フォールバック経路）
 
 - 原因の多くは再生先（sink）の不一致
 - `paplay --device=<sink>` で明示する
@@ -176,29 +210,30 @@ curl -fsS http://127.0.0.1:50021/speakers | jq '.[].name'
 - PipeWire の sink 音量・ストリーム音量以外に、合成音声のラウドネス差がある
 - 対策は `volumeScale` を上げる（この環境では `2.5`）
 
-### 4. `notify-send` の通知音と混同する
+### 4. `notify-send` / overlay 通知と混同する
 
-- `notify-send` は通知表示であり、音声発話の再生とは別経路
-- VOICEVOX は `paplay` で再生する方が確実
+- 通知字幕（overlay `notify`）と VOICEVOX 発話（overlay `speak`）は別リクエスト
+- 音声発話は `speak(text + wav_path)` を使う
 
 ### 5. 日本語テキストで `audio_query` が失敗する
 
 - `text=` の URL エンコード漏れ
 - `python3 -c 'urllib.parse.quote(...)'` を使う
 
-### 6. VOICEVOX 側は生きているが再生コマンドが無音
+### 6. VOICEVOX 側は生きているが再生されない / 字幕しか出ない
 
-- `SINK` の誤り
-- `paplay` が別 sink に流れている
-- 必要なら `pactl info` / `pactl list short sinks` を再確認
+- Tauri overlay IPC が未起動（`127.0.0.1:47832` に繋がらない）
+- Tauri 側の音声出力初期化失敗（`logs-overlay` を確認）
+- フォールバック検証として `paplay --device=<sink> "$OUT"` で切り分け
 
 ## デバッグ手順（聞こえないとき）
 
 1. `curl -fsS http://127.0.0.1:50021/version` で API 確認
 2. `pactl info | sed -n 's/^Default Sink: //p'` で sink 確認
-3. `paplay --device=<sink> /usr/share/sounds/freedesktop/stereo/bell.oga` で効果音確認
-4. それでも分からなければ 1kHz テストトーンで確認（`audio-play` スキル参照）
-5. VOICEVOX の `volumeScale` を `2.5` に上げて再試行
+3. `tmp/whispercpp-listen/tmux_listen_only.sh logs-overlay` で IPC/再生ログ確認
+4. `paplay --device=<sink> /usr/share/sounds/freedesktop/stereo/bell.oga` で効果音確認
+5. それでも分からなければ 1kHz テストトーンで確認（`audio-play` スキル参照）
+6. VOICEVOX の `volumeScale` を `2.5` に上げて再試行
 
 ## 成功条件（報告時）
 
@@ -212,4 +247,6 @@ curl -fsS http://127.0.0.1:50021/speakers | jq '.[].name'
 
 - 汎用音再生スキル: `.codex/skills/audio-play/SKILL.md`
 - VOICEVOX API: `http://127.0.0.1:50021`
+- 字幕オーバーレイ PoC: `tmp/tauri-caption-overlay-poc`
+- 音声待ち受け tmux 管理: `tmp/whispercpp-listen/tmux_listen_only.sh`
 - 典型 HDMI sink: `alsa_output.pci-0000_04_00.1.hdmi-stereo`
