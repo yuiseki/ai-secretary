@@ -1,9 +1,9 @@
 ---
-name: vaccumtube
+name: vacuumtube
 description: "VacuumTube（/opt/VacuumTube/vacuumtube）を Chromium や playwright ではなく直接 remote debugging（CDP, 既定: http://127.0.0.1:9992）で操作して、YouTube TV のホームや視聴画面から BGM・音楽・ニュース動画を選択/再生する。ユーザーが「BGM再生して」「音楽再生して」「ライブニュース再生して」「国連総会の最新ニュース動画見たい」など依頼したときに使う。"
 ---
 
-# vaccumtube Skill
+# vacuumtube Skill
 
 VacuumTube を直接操作するためのスキルです。`Chromium` / `playwright-cli` を使うのではなく、VacuumTube の Electron/Chromium に対して **CDP (Chrome DevTools Protocol)** で接続して DOM を読み、動画タイルを選択します。
 
@@ -11,14 +11,21 @@ VacuumTube を直接操作するためのスキルです。`Chromium` / `playwri
 
 - VacuumTube 本体: `/opt/VacuumTube/vacuumtube`
 - Remote debugging: `127.0.0.1:9992`
-- 推奨起動: `~/vaccumetube.sh`
+- 推奨起動: `~/vacuumtube.sh`
   - `~/.config/VacuumTube/flags.txt` に `--remote-debugging-port=9992` を設定して起動する
 
-確認:
+確認（CDP）:
 
 ```bash
 curl -fsS http://127.0.0.1:9992/json/version
 curl -fsS http://127.0.0.1:9992/json/list | jq '.[] | {type,title,url}'
+```
+
+確認（プロセス/ウィンドウ存在）:
+
+```bash
+pgrep -af '^/opt/VacuumTube/vacuumtube( |$)'
+DISPLAY=:1 wmctrl -l | rg -i 'VacuumTube'
 ```
 
 ## 重要ルール
@@ -53,6 +60,92 @@ curl -fsS http://127.0.0.1:9992/json/list | jq '.[] | {type,title,url}'
 8. `location.hash` が `#/watch?v=...` に変わったら成功
 9. 必要なら再生状態を確認（ただし選択直後の `paused=true` は瞬間値のことがある）
 
+## 起動・停止（実務向け）
+
+### 既存プロセスの停止
+
+```bash
+pkill -TERM -f '^/opt/VacuumTube/vacuumtube( |$)' || true
+```
+
+### `tmux` でバックグラウンド起動（推奨）
+
+VacuumTube を長時間運用する場合は、`tmux` でデタッチ起動しておくと安定します。
+
+```bash
+tmux new-session -d -s vacuumtube-bg \
+  "bash -lc 'export VACUUMTUBE_DISPLAY=:1; export XAUTHORITY=\"$HOME/.Xauthority\"; exec ~/vacuumtube.sh'"
+```
+
+確認:
+
+```bash
+tmux ls | rg '^vacuumtube-bg:'
+pgrep -af '^/opt/VacuumTube/vacuumtube( |$)'
+curl -fsS http://127.0.0.1:9992/json/version
+```
+
+### 起動直後の初期化（起動操作の完了条件）
+
+VacuumTube の「起動操作」は、**プロセス起動だけでなく**次の 2 点まで含める。
+
+1. 起動直後のアカウント選択画面で `YuisekinTV` を選ぶ
+2. VacuumTube ウィンドウをデスクトップ右上に配置する
+
+#### 1) アカウント `YuisekinTV` を選択
+
+- 起動直後は YouTube TV のアカウント選択画面になることがある
+- 画面文言の目安: `アカウントを追加`, `ゲストとして視聴`
+- `YuisekinTV` の表示は DOM 上で `Yui ekinTV` のように空白分割されることがある（厳密文字列一致に依存しない）
+
+実務上の安定手順:
+
+- まず CDP でアカウント選択画面か判定
+- 起動直後の既定フォーカスが `YuisekinTV` なら、`Enter` 1 回で選択
+- 成功判定は、アカウント選択文言が消え、ホーム画面文言（例: `あなたへのおすすめ`）が出ること
+
+補足:
+
+- DOM から `YuisekinTV` 要素を直接引けない場合がある（テキスト分割/特殊レンダリング）
+- その場合は `Enter` による既定フォーカス選択を優先する
+
+#### 2) 右上に移動（desktop-windows-layout スキル併用）
+
+起動後は `desktop-windows-layout` スキルの手順で右上タイルに配置する。
+
+```bash
+export DISPLAY=:1
+WIN_ID=$(wmctrl -l | awk '/VacuumTube$/ {print $1; exit}')
+xdotool windowactivate --sync "$WIN_ID"
+timeout 2s qdbus org.kde.kglobalaccel /component/kwin \
+  org.kde.kglobalaccel.Component.invokeShortcut \
+  'Window Quick Tile Top Right' default || true
+wmctrl -lG | awk -v id="$WIN_ID" '$1==id {print}'
+```
+
+期待値（この環境の実測）:
+
+- `X=2048, Y=28, WIDTH=2048, HEIGHT=1052`
+
+これで「VacuumTube 起動操作完了」として扱う。
+
+### `tmux` 起動でハマりやすい点
+
+- `tmux` サーバーが SSH/X11 forwarding の `DISPLAY=localhost:10.0` を保持していることがある
+  - そのまま `~/vacuumtube.sh` を起動すると、VacuumTube が `localhost:10.0` を使おうとして失敗する
+  - 実測エラー例: `Missing X server or $DISPLAY`
+- 対策:
+  - `VACUUMTUBE_DISPLAY=:1` を明示する（上記コマンド）
+  - 必要に応じて `XAUTHORITY="$HOME/.Xauthority"` も明示する
+
+失敗時のログ確認用（セッションが即終了する場合）:
+
+```bash
+tmux new-session -d -s vacuumtube-bg-debug \
+  "bash -lc 'export VACUUMTUBE_DISPLAY=:1; export XAUTHORITY=\"$HOME/.Xauthority\"; ~/vacuumtube.sh; ec=$?; echo EXIT:$ec; sleep 20'"
+tmux capture-pane -pt vacuumtube-bg-debug:0 -S -80
+```
+
 ## 画面状態の判定（CDP / Runtime.evaluate）
 
 最低限見る値:
@@ -67,7 +160,8 @@ curl -fsS http://127.0.0.1:9992/json/list | jq '.[] | {type,title,url}'
 動画要素の確認（任意）:
 
 ```js
-const v = window.yt?.player?.utils?.videoElement_ || document.querySelector('video');
+const v =
+  window.yt?.player?.utils?.videoElement_ || document.querySelector("video");
 ```
 
 取得項目:
@@ -139,7 +233,8 @@ DISPLAY=:1 wmctrl -a VacuumTube
 
 - `curl http://127.0.0.1:9992/json/version` が失敗:
   - VacuumTube が remote debugging なしで起動している
-  - `~/vaccumetube.sh` で起動し直す
+  - `~/vacuumtube.sh` で起動し直す
+  - `tmux` 起動時は `VACUUMTUBE_DISPLAY=:1` 指定を確認
 - `json/list` に `youtube.com/tv` がない:
   - 起動直後の読み込み途中。数秒待って再試行
 - クリックしても遷移しない:
@@ -158,5 +253,5 @@ DISPLAY=:1 wmctrl -a VacuumTube
 ## ローカル参照
 
 - VacuumTube ソース: `repos/_youtube/VacuumTube`
-- 手動起動スクリプト: `~/vaccumetube.sh`
+- 手動起動スクリプト: `~/vacuumtube.sh`
 - 本体バイナリ: `/opt/VacuumTube/vacuumtube`
