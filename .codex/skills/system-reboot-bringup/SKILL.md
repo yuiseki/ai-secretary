@@ -19,7 +19,7 @@ description: "Ubuntu/KDE デスクトップを再起動したあとに、この�
 ## 前提
 
 - KDE Plasma デスクトップにログイン済み
-- `DISPLAY=:1` で GUI 操作できる
+- 実際に有効な `DISPLAY` を確認して GUI 操作できる（再起動後に `:0` / `:1` が変わることがある）
 - `tmux`, `curl`, `jq`, `python3` 利用可能
 - `Ollama` サーバー起動済み（`http://127.0.0.1:11434`）
 - `qwen3-vl:*` モデル導入済み（既定は `qwen3-vl:4b`）
@@ -32,16 +32,39 @@ description: "Ubuntu/KDE デスクトップを再起動したあとに、この�
 
 ## 推奨の起動順（再起動後）
 
-### 1) VOICEVOX を起動（API :50021）
+### 0) 有効な `DISPLAY` を確認（重要）
+
+再起動後は `DISPLAY` が `:0` になることがあるため、固定値 `:1` を前提にしない。
 
 ```bash
-DISPLAY=:1 XAUTHORITY="$HOME/.Xauthority" ~/.voicevox/VOICEVOX.AppImage &
+for d in :0 :1 :2; do
+  echo "== $d =="
+  DISPLAY="$d" XAUTHORITY="$HOME/.Xauthority" xdpyinfo >/dev/null 2>&1 && echo ok || echo ng
+done
+```
+
+`ok` になった値を以降のコマンドで使う（例: `:0`）。
+
+```bash
+export DESKTOP_DISPLAY=:0
+export XAUTHORITY="$HOME/.Xauthority"
+```
+
+### 1) VOICEVOX (VOICEBOX) を起動（`tmux` 推奨, API :50021）
+
+`VOICEVOX` も `tmux` で常駐化しておくと、作業セッション終了時に巻き込まれて落ちにくい。
+
+```bash
+tmux has-session -t voicevox-bg 2>/dev/null && tmux kill-session -t voicevox-bg || true
+tmux new-session -d -s voicevox-bg \
+  "bash -lc 'export DISPLAY=${DESKTOP_DISPLAY}; export XAUTHORITY=\"$HOME/.Xauthority\"; exec \"$HOME/.voicevox/VOICEVOX.AppImage\"'"
 ```
 
 確認:
 
 ```bash
 curl -fsS http://127.0.0.1:50021/version
+tmux capture-pane -pt voicevox-bg -S -40 | tail -n 20
 ```
 
 補足:
@@ -52,7 +75,7 @@ curl -fsS http://127.0.0.1:50021/version
 
 ```bash
 tmux new-session -d -s vacuumtube-bg \
-  "bash -lc 'export VACUUMTUBE_DISPLAY=:1; export XAUTHORITY=\"$HOME/.Xauthority\"; exec ~/vacuumtube.sh'"
+  "bash -lc 'export VACUUMTUBE_DISPLAY=${DESKTOP_DISPLAY}; export XAUTHORITY=\"$HOME/.Xauthority\"; exec ~/vacuumtube.sh'"
 ```
 
 確認:
@@ -78,6 +101,8 @@ curl -fsS http://127.0.0.1:9992/json/version
 起動:
 
 ```bash
+CAPTION_OVERLAY_DISPLAY="${DESKTOP_DISPLAY}" \
+CAPTION_OVERLAY_XAUTHORITY="$HOME/.Xauthority" \
 tmp/whispercpp-listen/tmux_listen_only.sh start-agent
 ```
 
@@ -132,7 +157,7 @@ tmp/webcam_ollama_vision/tmux_webcam_daemon.sh logs
 ## まとめて確認（復旧完了チェック）
 
 ```bash
-tmux ls | rg 'vacuumtube-bg|whisper-server-ja|whisper-agent-ja|caption-overlay-poc|webcam-vision-daemon'
+tmux ls | rg 'voicevox-bg|vacuumtube-bg|whisper-server-ja|whisper-agent-ja|caption-overlay-poc|webcam-vision-daemon'
 curl -fsS http://127.0.0.1:50021/version
 curl -fsS http://127.0.0.1:9992/json/version
 curl -fsS http://127.0.0.1:11434/api/tags | jq -r '.models[].name' | rg '^qwen3-vl:' | head
@@ -140,6 +165,7 @@ curl -fsS http://127.0.0.1:11434/api/tags | jq -r '.models[].name' | rg '^qwen3-
 
 期待される `tmux` セッション（通常運用）:
 
+- `voicevox-bg`
 - `vacuumtube-bg`
 - `whisper-server-ja`
 - `whisper-agent-ja`
@@ -162,6 +188,7 @@ curl -fsS http://127.0.0.1:11434/api/tags | jq -r '.models[].name' | rg '^qwen3-
 ### 1) `whisper-agent` は動いているのに喋らない
 
 - `VOICEVOX` が起動していないことが多い
+- 再起動後に `DISPLAY` を取り違えて `VOICEVOX` が即終了していることもある
 - 確認: `curl -fsS http://127.0.0.1:50021/version`
 
 ### 2) Webcam daemon がすぐ落ちる
