@@ -101,7 +101,17 @@ node .codex/skills/vacuumtube-silent-live-cam/scripts/open_tv_channel_live_tile_
   --verify-regex '新宿|Shinjuku|TBS NEWS DIG|JNN'
 ```
 
-## 既知パターン（FNN / Cerevo / TBS NEWS DIG）
+別例（池袋 / サンシャイン60通りライブカメラ）:
+
+```bash
+node .codex/skills/vacuumtube-silent-live-cam/scripts/open_tv_channel_live_tile_fast.js \
+  --cdp-port 9993 \
+  --browse-url 'https://www.youtube.com/tv/@%E3%82%B5%E3%83%B3%E3%82%B7%E3%83%A3%E3%82%A4%E3%83%B360%E9%80%9A%E3%82%8A%E3%83%A9%E3%82%A4%E3%83%96%E3%82%AB%E3%83%A1%E3%83%A9/streams#/browse?c=UCEloGRn_GCcr-I_6f5MYJPw' \
+  --keyword 'サンシャイン60通りライブカメラ' \
+  --verify-regex 'サンシャイン60通り|池袋|Sunshine|ikebukuro'
+```
+
+## 既知パターン（FNN / Cerevo / TBS NEWS DIG / 池袋サンシャイン60通り）
 
 ### FNN / いまの渋谷
 
@@ -125,6 +135,14 @@ node .codex/skills/vacuumtube-silent-live-cam/scripts/open_tv_channel_live_tile_
 - タイル文言は `【LIVE】新宿駅前のライブカメラ ... Shinjuku, Tokyo JAPAN | TBS NEWS DIG` のように長いので、`keyword` は短め（`新宿駅前のライブカメラ`）が安定
 - 取得済み `videoId` に直接 `#/watch?v=...` で飛ばした際、まれにアカウント選択画面に落ちることがある
   - その場合は既定フォーカスの `YuisekinTV` で `Enter` を 1 回送ると復帰し、そのまま目的動画に戻ることがある
+
+### サンシャイン60通りライブカメラ / 池袋
+
+- URL パスは `https://www.youtube.com/tv/@%E3%82%B5%E3%83%B3%E3%82%B7%E3%83%A3%E3%82%A4%E3%83%B360%E9%80%9A%E3%82%8A%E3%83%A9%E3%82%A4%E3%83%96%E3%82%AB%E3%83%A1%E3%83%A9/streams` を使える（日本語ハンドルのため percent-encoding された URL）
+- チャンネルID（`c=`）は `UCEloGRn_GCcr-I_6f5MYJPw`
+- タイル一覧は `#/browse?c=UCEloGRn_GCcr-I_6f5MYJPw` が安定
+- タイル文言は `【LIVE】サンシャイン60通りライブカメラ：Tokyo City Live Camera ikebukuro ...` のように長いので、`keyword` は短め（`サンシャイン60通りライブカメラ`）が安定
+- `verify-regex` は `サンシャイン60通り|池袋|Sunshine|ikebukuro` のように日英混在で書くと、タイル/視聴ページどちらでも検証しやすい
 
 ## 確認コマンド
 
