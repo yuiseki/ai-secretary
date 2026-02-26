@@ -91,7 +91,17 @@ node .codex/skills/vacuumtube-silent-live-cam/scripts/open_tv_channel_live_tile_
   --verify-regex '秋葉原|Akihabara|Cerevo'
 ```
 
-## 既知パターン（FNN / Cerevo）
+別例（TBS NEWS DIG / 新宿駅前ライブカメラ）:
+
+```bash
+node .codex/skills/vacuumtube-silent-live-cam/scripts/open_tv_channel_live_tile_fast.js \
+  --cdp-port 9993 \
+  --browse-url 'https://www.youtube.com/tv/@tbsnewsdig/streams#/browse?c=UC6AG81pAkf6Lbi_1VC5NmPA' \
+  --keyword '新宿駅前のライブカメラ' \
+  --verify-regex '新宿|Shinjuku|TBS NEWS DIG|JNN'
+```
+
+## 既知パターン（FNN / Cerevo / TBS NEWS DIG）
 
 ### FNN / いまの渋谷
 
@@ -106,6 +116,15 @@ node .codex/skills/vacuumtube-silent-live-cam/scripts/open_tv_channel_live_tile_
 - タイル一覧は `#/browse?c=UCrGS8VyrgCqYwaogH5bQpxQ` が安定
 - `#/browse`（`c=` なし）だと数秒で `#/` に戻されやすく、ホームのおすすめタイルが混在して誤選択しやすい
 - `秋葉原ライブカメラ` は `オノデンch` 等の別チャンネルおすすめにも混ざることがあるため、`verify-regex` に `Cerevo` を含めると安全
+
+### TBS NEWS DIG / 新宿駅前ライブカメラ
+
+- URL パスは `https://www.youtube.com/tv/@tbsnewsdig/streams` を使える
+- チャンネルID（`c=`）は `UC6AG81pAkf6Lbi_1VC5NmPA`
+- タイル一覧は `#/browse?c=UC6AG81pAkf6Lbi_1VC5NmPA` が安定
+- タイル文言は `【LIVE】新宿駅前のライブカメラ ... Shinjuku, Tokyo JAPAN | TBS NEWS DIG` のように長いので、`keyword` は短め（`新宿駅前のライブカメラ`）が安定
+- 取得済み `videoId` に直接 `#/watch?v=...` で飛ばした際、まれにアカウント選択画面に落ちることがある
+  - その場合は既定フォーカスの `YuisekinTV` で `Enter` を 1 回送ると復帰し、そのまま目的動画に戻ることがある
 
 ## 確認コマンド
 
