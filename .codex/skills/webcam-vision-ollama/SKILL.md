@@ -1,6 +1,6 @@
 ---
 name: webcam-vision-ollama
-description: "Webカメラ画像を取得して Ollama の qwen3-vl シリーズで内容を日本語テキスト化する。ユーザーが『部屋の様子を見て』『Webカメラで何が映っているか教えて』『カメラ画像を qwen3-vl で説明して』など依頼したときに使う。複数カメラ（--all-cameras）に対応し、必要に応じて結合画像（--stitch horizontal|vertical）を作って『同じ部屋の別画角』前提で説明させる。待ち時間短縮のため結合画像だけ説明する --stitch-only にも対応。Logitech C920 複数台の video-index0 を順に撮影し、ffmpeg で静止画取得、Ollama /api/generate への画像送信、qwen3-vl:4b 優先選択、反復観測（repeat）に対応。"
+description: "Webカメラ画像を取得して Ollama の qwen3-vl シリーズで内容を日本語テキスト化する。ユーザーが『部屋の様子を見て』『Webカメラで何が映っているか教えて』『カメラ画像を qwen3-vl で説明して』など依頼したときに使う。複数カメラ（--all-cameras）に対応し、必要に応じて結合画像（--stitch horizontal|vertical）を作って『同じ部屋の別画角』前提で説明させる。待ち時間短縮のため結合画像だけ説明する --stitch-only にも対応。Logitech C920 複数台の video-index0 を順に撮影し、ffmpeg で静止画取得、Ollama /api/generate への画像送信、qwen3-vl:4b 優先選択、反復観測（repeat）に対応。--daemon では1分ごと撮影・キャプションを `~/.cache/yuiclaw/camera/YYYY/MM/DD/HH/MM.(png|txt)` に保存し、前回キャプションとの差分を優先して説明させる。"
 ---
 
 # webcam-vision-ollama Skill
@@ -17,6 +17,7 @@ Webカメラ画像を `Ollama` の視覚モデル（主に `qwen3-vl`）で説�
 - `Webカメラで何が映っているか教えて`
 - `カメラ画像を qwen3-vl で説明して`
 - `定期的に部屋の様子を見てログ化したい（repeat実験）`
+- `常駐で1分ごとにカメラ画像とキャプションを保存したい`
 
 ## 前提
 
@@ -82,6 +83,29 @@ python3 tmp/webcam_ollama_vision/describe_webcam_with_ollama.py --model qwen3-vl
 python3 tmp/webcam_ollama_vision/describe_webcam_with_ollama.py \
   --repeat 5 \
   --interval-sec 3
+```
+
+### 常駐監視（daemon, 1分ごと保存）
+
+```bash
+python3 tmp/webcam_ollama_vision/describe_webcam_with_ollama.py --daemon
+```
+
+既定の保存先:
+
+- `~/.cache/yuiclaw/camera/YYYY/MM/DD/HH/MM.png`
+- `~/.cache/yuiclaw/camera/YYYY/MM/DD/HH/MM.txt`
+
+補足:
+
+- `qwen3-vl:4b` 優先でキャプショニング
+- 直前のキャプションを次回プロンプトに渡し、「前回との差分」を先に説明させる
+
+テスト実行（1回だけで終了）:
+
+```bash
+python3 tmp/webcam_ollama_vision/describe_webcam_with_ollama.py \
+  --daemon --max-runs 1 --archive-root /tmp/yuiclaw-camera-test
 ```
 
 ### 複数カメラ + 結合画像（横/縦）
