@@ -143,24 +143,25 @@ node .codex/skills/vacuumtube-silent-live-cam/scripts/open_tv_channel_live_tile_
 
 ### レイアウトの考え方
 
-- 画面全体: `SCREEN_W x SCREEN_H`
-- 右下 FHD 領域の左上:
-  - `baseX = SCREEN_W - 1920`
-  - `baseY = SCREEN_H - 1080`
+- 画面全体: `SCREEN_W x SCREEN_H` (4096 x 2160)
+- タスクバー高さを引いた有効領域: `4096 x 2116`
+- 右下領域の左上:
+  - `baseX = 2048`
+  - `baseY = 1058`
 - 4分割セルサイズ:
-  - `cellW = 960`
-  - `cellH = 540`
+  - `cellW = 1024`
+  - `cellH = 529`
 
 配置先（frame geometry）:
 
-- 左上: `(baseX, baseY, 960, 540)`
-- 右上: `(baseX+960, baseY, 960, 540)`
-- 左下: `(baseX, baseY+540, 960, 540)`
-- 右下: `(baseX+960, baseY+540, 960, 540)`
+- 左上: `(baseX, baseY, 1024, 529)`
+- 右上: `(baseX+1024, baseY, 1024, 529)`
+- 左下: `(baseX, baseY+529, 1024, 529)`
+- 右下: `(baseX+1024, baseY+529, 1024, 529)`
 
-実測例（DCI 4K `4096x2160`）:
+実測例（DCI 4K `4096x2160` - Taskbar 44px）:
 
-- `baseX=2176`, `baseY=1080`
+- `baseX=2048`, `baseY=1058`
 
 ### KWin Scripting による確実配置（推奨）
 
@@ -177,10 +178,10 @@ PID_9995=$(lsof -nP -iTCP:9995 -sTCP:LISTEN -t | head -n1)
 PID_9996=$(lsof -nP -iTCP:9996 -sTCP:LISTEN -t | head -n1)
 
 cat > /tmp/codex_kwin_layout_4cams.js <<EOF
-var baseX = 2176;
-var baseY = 1080;
-var cellW = 960;
-var cellH = 540;
+var baseX = 2048;
+var baseY = 1058;
+var cellW = 1024;
+var cellH = 529;
 var targets = [
   { pid: $PID_9993, x: baseX,         y: baseY,         w: cellW, h: cellH }, // Shibuya
   { pid: $PID_9994, x: baseX + cellW, y: baseY,         w: cellW, h: cellH }, // Shinjuku
