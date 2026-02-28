@@ -157,6 +157,9 @@ tmp/webcam_ollama_vision/tmux_webcam_daemon.sh logs
 
 ### 5) GOD MODE（ウェブカメラ + 顔認識オーバーレイ）を起動（tmux 管理）
 
+> **step 4 の `webcam-vision-daemon`（定期スナップショット → qwen3-vl AI分析）とは別システムです。**
+> GOD MODE はリアルタイム映像をデスクトップ上にオーバーレイ表示する「映像表示系」です。
+
 `tmp/GOD_MODE/god_mode_restart.sh` を `tmux` セッション `god-mode-bg` から実行します。
 内部では `god_mode.sh restart` が各プロセスを `nohup` で起動し PID を `/tmp/god_mode_8765.pids` に保存します。
 その後 `layout --full-screen → --backmost` でウィンドウを全画面・最背面（壁紙代わり）に配置します。
