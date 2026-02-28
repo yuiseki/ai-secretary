@@ -1,6 +1,6 @@
 ---
 name: system-reboot-bringup
-description: "Ubuntu/KDE デスクトップを再起動したあとに、この環境の常駐プロセス群（VOICEVOX API、VacuumTube、whisper.cpp 音声コマンド待受、Tauri 字幕オーバーレイ、Webカメラ qwen3-vl キャプション daemon）を順序よく復旧する。ユーザーが『再起動後の起動手順をやって』『常駐プロセスを全部立ち上げて』『音声待受とカメラ監視を復旧して』など依頼したときに使う。"
+description: "Ubuntu/KDE デスクトップを再起動したあとに、この環境の常駐プロセス群（VOICEVOX API、VacuumTube、whisper.cpp 音声コマンド待受、Tauri 字幕オーバーレイ、Webカメラ qwen3-vl キャプション daemon、GOD MODE ウェブカメラオーバーレイ）を順序よく復旧する。ユーザーが『再起動後の起動手順をやって』『常駐プロセスを全部立ち上げて』『音声待受とカメラ監視を復旧して』など依頼したときに使う。"
 ---
 
 # system-reboot-bringup Skill
@@ -15,6 +15,7 @@ description: "Ubuntu/KDE デスクトップを再起動したあとに、この�
 - `whisper.cpp` 音声コマンド待受一式（`whisper-server-ja`, `whisper-agent-ja`）
 - `Tauri` 字幕オーバーレイ（`caption-overlay-poc`）
 - `Webカメラ + qwen3-vl` 常駐キャプション daemon（`webcam-vision-daemon`）
+- `GOD MODE` ウェブカメラ + 顔認識オーバーレイ（`god-mode-bg` tmux / port 8765）
 
 ## 前提
 
@@ -154,13 +155,74 @@ tmp/webcam_ollama_vision/tmux_webcam_daemon.sh logs
 - キャプションは前回結果を次回プロンプトへ渡し、「前回との差分」を優先して説明する
 - カメラが1台しか見つからない場合は `--stitch-only` を自動で無効化して起動する
 
+### 5) GOD MODE（ウェブカメラ + 顔認識オーバーレイ）を起動（tmux 管理）
+
+`tmp/GOD_MODE/god_mode_restart.sh` を `tmux` セッション `god-mode-bg` から実行します。
+内部では `god_mode.sh restart` が各プロセスを `nohup` で起動し PID を `/tmp/god_mode_8765.pids` に保存します。
+その後 `layout --full-screen → --backmost` でウィンドウを全画面・最背面（壁紙代わり）に配置します。
+
+```bash
+tmux has-session -t god-mode-bg 2>/dev/null && tmux kill-session -t god-mode-bg || true
+tmux new-session -d -s god-mode-bg \
+  "bash -lc 'cd ~/Workspaces/tmp/GOD_MODE && DISPLAY=${DESKTOP_DISPLAY} XAUTHORITY=\"$HOME/.Xauthority\" bash god_mode_restart.sh; exec bash'"
+```
+
+`god_mode_restart.sh` の内容（参考）:
+
+```bash
+./god_mode.sh restart --chromium --port 8765 --cameras 0,2,4
+./god_mode.sh layout --full-screen
+./god_mode.sh layout --backmost
+```
+
+起動確認（起動完了まで 10〜20 秒かかります）:
+
+```bash
+# tmux セッションのログを確認
+tmux capture-pane -pt god-mode-bg -S -40 | tail -n 20
+
+# video server の HTTP 応答を確認
+curl -fsS http://localhost:8765/status
+```
+
+手動でウィンドウレイアウトを変更したい場合:
+
+```bash
+cd ~/Workspaces/tmp/GOD_MODE
+
+# 前面に出す（ウェブカメラが見たいとき）
+DISPLAY=${DESKTOP_DISPLAY} bash god_mode.sh layout --frontmost
+
+# フルスクリーン
+DISPLAY=${DESKTOP_DISPLAY} bash god_mode.sh layout --full-screen
+
+# 左下コンパクト配置
+DISPLAY=${DESKTOP_DISPLAY} bash god_mode.sh layout --left-bottom
+
+# 最背面に戻す（壁紙モード）
+DISPLAY=${DESKTOP_DISPLAY} bash god_mode.sh layout --backmost
+```
+
+停止したい場合:
+
+```bash
+cd ~/Workspaces/tmp/GOD_MODE && DISPLAY=${DESKTOP_DISPLAY} bash god_mode.sh stop
+```
+
+補足:
+
+- GOD MODE は `--chromium` モードで Chromium ウィンドウを使用（`--chromium` なし: Tauri モード）
+- `--cameras 0,2,4` でカメラ 0・2・4 番を使用（実際のデバイス番号は環境依存）
+- 音声コマンド `システム、ウェブカメラが見たい` 等でも制御可能（`whisper-agent` 運用中の場合）
+
 ## まとめて確認（復旧完了チェック）
 
 ```bash
-tmux ls | rg 'voicevox-bg|vacuumtube-bg|whisper-server-ja|whisper-agent-ja|caption-overlay-poc|webcam-vision-daemon'
+tmux ls | rg 'voicevox-bg|vacuumtube-bg|whisper-server-ja|whisper-agent-ja|caption-overlay-poc|webcam-vision-daemon|god-mode-bg'
 curl -fsS http://127.0.0.1:50021/version
 curl -fsS http://127.0.0.1:9992/json/version
 curl -fsS http://127.0.0.1:11434/api/tags | jq -r '.models[].name' | rg '^qwen3-vl:' | head
+curl -fsS http://localhost:8765/status
 ```
 
 期待される `tmux` セッション（通常運用）:
@@ -171,10 +233,12 @@ curl -fsS http://127.0.0.1:11434/api/tags | jq -r '.models[].name' | rg '^qwen3-
 - `whisper-agent-ja`
 - `caption-overlay-poc`
 - `webcam-vision-daemon`
+- `god-mode-bg`（起動スクリプト完了後は idle、GOD_MODE プロセス自体は nohup で稼働中）
 
 注意:
 
 - `whisper-listen-ja` は `agent` 運用中は `STOPPED` が正常
+- `god-mode-bg` の tmux は起動コマンド実行後に idle になるのが正常（`exec bash` で待機している）
 
 ## 最小の手動確認（UX）
 
@@ -203,6 +267,18 @@ curl -fsS http://127.0.0.1:11434/api/tags | jq -r '.models[].name' | rg '^qwen3-
 - `~/vacuumtube.sh` 起動漏れ or `:9992` 未設定
 - 確認: `curl -fsS http://127.0.0.1:9992/json/version`
 
+### 4) GOD MODE の video server に繋がらない
+
+- `god_mode.sh restart` が失敗しているか、まだ起動中
+- `tmux capture-pane -pt god-mode-bg -S -40` でログを確認
+- `DISPLAY` が合っていないと Chromium ウィンドウが開かない（step 0 で確認した値を使うこと）
+- 手動で再起動: `cd ~/Workspaces/tmp/GOD_MODE && DISPLAY=${DESKTOP_DISPLAY} bash god_mode_restart.sh`
+
+### 5) GOD MODE ウィンドウが前面に出たまま戻らない
+
+- `--backmost` の KWin スクリプトが効いていない可能性
+- 手動で最背面に: `cd ~/Workspaces/tmp/GOD_MODE && DISPLAY=${DESKTOP_DISPLAY} bash god_mode.sh layout --backmost`
+
 ## 関連スキル
 
 - `vacuumtube`（VacuumTube の CDP 操作）
@@ -210,3 +286,4 @@ curl -fsS http://127.0.0.1:11434/api/tags | jq -r '.models[].name' | rg '^qwen3-
 - `audio-speak-voicebox`（VOICEVOX + 字幕オーバーレイ）
 - `webcam-vision-ollama`（Webカメラ + qwen3-vl）
 - `desktop-windows-layout`（VacuumTube の右上配置など）
+- `webcam-vision-ollama`（GOD MODE の Webカメラ画像確認）
