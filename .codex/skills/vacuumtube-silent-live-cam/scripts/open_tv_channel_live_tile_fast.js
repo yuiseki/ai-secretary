@@ -14,6 +14,7 @@ Optional:
   --cdp-port N             CDP port (default: 9993)
   --verify-regex REGEX     Post-open verification regex (default: keyword)
   --tv-home-url URL        TV home URL used to reset SPA state (default: https://www.youtube.com/tv?env_enableMediaStreams=true#/)
+  --force-video-id ID      Skip browse phase; navigate directly to TV watch URL for this video ID
   --retries N              Retry rounds for the browse->select race (default: 4)
   --browse-window-ms N     Time budget per round to capture tiles before auto-redirect (default: 4500)
   --poll-ms N              Poll interval while waiting for tiles (default: 80)
@@ -30,6 +31,7 @@ function parseArgs(argv) {
     keyword: '',
     verifyRegex: '',
     tvHomeUrl: 'https://www.youtube.com/tv?env_enableMediaStreams=true#/',
+    forceVideoId: '',
     retries: 4,
     browseWindowMs: 4500,
     pollMs: 80,
@@ -49,6 +51,7 @@ function parseArgs(argv) {
       case '--keyword': out.keyword = next(); break;
       case '--verify-regex': out.verifyRegex = next(); break;
       case '--tv-home-url': out.tvHomeUrl = next(); break;
+      case '--force-video-id': out.forceVideoId = next(); break;
       case '--retries': out.retries = Number(next()); break;
       case '--browse-window-ms': out.browseWindowMs = Number(next()); break;
       case '--poll-ms': out.pollMs = Number(next()); break;
@@ -63,19 +66,22 @@ function parseArgs(argv) {
     }
   }
 
-  if (!out.browseUrl) throw new Error('--browse-url is required');
-  if (!out.keyword) throw new Error('--keyword is required');
+  if (!out.forceVideoId) {
+    if (!out.browseUrl) throw new Error('--browse-url is required');
+    if (!out.keyword) throw new Error('--keyword is required');
+  }
   if (!out.verifyRegex) out.verifyRegex = out.keyword;
   if (!Number.isFinite(out.cdpPort) || out.cdpPort <= 0) throw new Error('--cdp-port must be a positive number');
-  if (!Number.isFinite(out.retries) || out.retries < 1) throw new Error('--retries must be >= 1');
-  if (!Number.isFinite(out.browseWindowMs) || out.browseWindowMs < 200) throw new Error('--browse-window-ms must be >= 200');
-  if (!Number.isFinite(out.pollMs) || out.pollMs < 20) throw new Error('--poll-ms must be >= 20');
-  if (!Number.isFinite(out.verifyTimeoutMs) || out.verifyTimeoutMs < 200) throw new Error('--verify-timeout-ms must be >= 200');
-
-  // Validate URL format early.
-  new URL(out.browseUrl);
+  if (!out.forceVideoId) {
+    if (!Number.isFinite(out.retries) || out.retries < 1) throw new Error('--retries must be >= 1');
+    if (!Number.isFinite(out.browseWindowMs) || out.browseWindowMs < 200) throw new Error('--browse-window-ms must be >= 200');
+    if (!Number.isFinite(out.pollMs) || out.pollMs < 20) throw new Error('--poll-ms must be >= 20');
+    if (!Number.isFinite(out.verifyTimeoutMs) || out.verifyTimeoutMs < 200) throw new Error('--verify-timeout-ms must be >= 200');
+    // Validate URL format early.
+    new URL(out.browseUrl);
+  }
   new URL(out.tvHomeUrl);
-  out.verifyRegexObject = new RegExp(out.verifyRegex, 'i');
+  out.verifyRegexObject = new RegExp(out.verifyRegex || '.', 'i');
 
   return out;
 }
@@ -661,6 +667,32 @@ async function main() {
   }
 
   const cdp = await connectPageTarget(opts.cdpPort);
+
+  // --force-video-id: skip browse phase, navigate directly to TV watch URL.
+  // Reset SPA state via TV home first (same pattern as navigateAndCaptureBrowse).
+  if (opts.forceVideoId) {
+    try {
+      const tvWatchUrl = buildWatchUrlFromTvHomeUrl(opts.tvHomeUrl, opts.forceVideoId);
+      await cdp.send('Page.navigate', { url: opts.tvHomeUrl });
+      await cdp.waitLoad(5000);
+      await sleep(200);
+      await cdp.send('Page.navigate', { url: tvWatchUrl });
+      await cdp.waitLoad(4000);
+      console.log(JSON.stringify({
+        ok: true,
+        cdpPort: opts.cdpPort,
+        method: 'force-video-id',
+        videoId: opts.forceVideoId,
+        tvWatchUrl,
+        keyword: opts.keyword,
+        pageTargetUrl: cdp.target.url,
+      }, null, 2));
+    } finally {
+      try { cdp.ws.close(); } catch (_) {}
+    }
+    return;
+  }
+
   const fastExpr = buildFastScanExpr(opts.keyword);
   const focusExpr = buildFocusMatchExpr(opts.keyword);
   const scrollExpr = buildScrollBrowseExpr();
