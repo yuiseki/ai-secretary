@@ -13,7 +13,7 @@ description: "Ubuntu/KDE デスクトップを再起動したあとに、この�
 - `VOICEVOX` API（`http://127.0.0.1:50021`）
 - `VacuumTube`（remote debugging `:9992`、通常 `tmux` セッション `vacuumtube-bg`）
 - `whisper.cpp` 音声コマンド待受一式（`whisper-server-ja`, `whisper-agent-ja`）
-- `Tauri` 字幕オーバーレイ（`caption-overlay-poc`）
+- `Tauri` 字幕オーバーレイ（`caption-overlay-poc` または `tauri-overlay`）
 - `Webカメラ + qwen3-vl` 常駐キャプション daemon（`webcam-vision-daemon`）
 - `GOD MODE` ウェブカメラ + 顔認識オーバーレイ（`god-mode-bg` tmux / port 8765）
 
@@ -91,7 +91,41 @@ curl -fsS http://127.0.0.1:9992/json/version
 - アカウント選択画面で `YuisekinTV` を選択
 - 右上にタイル配置（`desktop-windows-layout` / `vacuumtube` スキル手順）
 
-### 3) 音声待受 + 字幕オーバーレイ（tmux 管理）
+### 3) Tauri 字幕オーバーレイを起動（`tauri-overlay` tmux セッション）
+
+字幕・ロック画面オーバーレイを **音声待受とは独立して** 起動します。
+`tmux_listen_only.sh`（step 3-b）と重複しても問題ありません（`tmux_listen_only.sh` が `caption-overlay-poc` セッションで同じバイナリを管理します）。
+ロック画面単体をテストしたいときや、音声待受なしで字幕 IPC だけ使いたいときに便利です。
+
+```bash
+# 既存セッションがあれば殺してから起動
+tmux has-session -t tauri-overlay 2>/dev/null && tmux kill-session -t tauri-overlay || true
+tmux new-session -d -s tauri-overlay \
+  "bash -lc 'cd ~/Workspaces/tmp/tauri-caption-overlay-poc/src-tauri && PKG_CONFIG_PATH=/usr/lib/x86_64-linux-gnu/pkgconfig DISPLAY=${DESKTOP_DISPLAY} XAUTHORITY=\"$HOME/.Xauthority\" ./target/debug/caption-overlay-poc 2>&1 | tee /tmp/tauri-overlay.log'"
+```
+
+起動確認（IPC ポート 47832）:
+
+```bash
+sleep 3 && tail -5 /tmp/tauri-overlay.log
+# 期待: "caption overlay IPC listening on 127.0.0.1:47832"
+```
+
+ロック画面の表示テスト:
+
+```bash
+echo '{"type":"lock_screen_show","text":"SYSTEM LOCKED"}' | nc -q1 127.0.0.1 47832
+# 解除テスト
+echo '{"type":"lock_screen_hide"}' | nc -q1 127.0.0.1 47832
+```
+
+補足:
+
+- バイナリは `feature/biometric-lock-screen` ブランチで管理（HUD デザイン＋生体認証ロック画面）
+- リビルドが必要な場合: `cd ~/Workspaces/tmp/tauri-caption-overlay-poc/src-tauri && PKG_CONFIG_PATH=/usr/lib/x86_64-linux-gnu/pkgconfig asdf exec cargo build`
+- `whisper-agent` が `tauri-overlay` とは別に `caption-overlay-poc` セッション経由でオーバーレイを使う場合は、ポート競合に注意（47832 は1プロセスのみ）
+
+### 4) 音声待受（tmux 管理）
 
 `tmp/whispercpp-listen/tmux_listen_only.sh` が以下をまとめて管理します。
 
@@ -110,7 +144,17 @@ CAPTION_OVERLAY_XAUTHORITY="$HOME/.Xauthority" \
 tmp/whispercpp-listen/tmux_listen_only.sh start-agent
 ```
 
-#### moonshine バックエンド（高速・省メモリ・server不要）
+#### moonshine バックエンド + 声紋認証（推奨構成）
+
+```bash
+STT_BACKEND=moonshine \
+WHISPER_AGENT_SPEAKER_ID=1 \
+CAPTION_OVERLAY_DISPLAY="${DESKTOP_DISPLAY}" \
+CAPTION_OVERLAY_XAUTHORITY="$HOME/.Xauthority" \
+tmp/whispercpp-listen/tmux_listen_only.sh start-agent
+```
+
+#### moonshine バックエンド（声紋認証なし）
 
 ```bash
 STT_BACKEND=moonshine \
@@ -125,6 +169,7 @@ moonshine は `whisper-server-ja` セッションを起動しません。モデ�
 
 ```bash
 STT_BACKEND=moonshine MOONSHINE_MODEL_SIZE=tiny \
+WHISPER_AGENT_SPEAKER_ID=1 \
 tmp/whispercpp-listen/tmux_listen_only.sh start-agent
 ```
 
@@ -147,6 +192,11 @@ tmp/whispercpp-listen/tmux_listen_only.sh logs-overlay
 - whisper 既定モデルは `ggml-small.bin`
 - DJI マイクを明示したいときは `WHISPER_MIC_SOURCE=... tmp/whispercpp-listen/tmux_listen_only.sh restart-agent`
 - moonshine バックエンドは音声キャプチャに `ffmpeg`（`parec` 不要）を使用します
+- `WHISPER_AGENT_SPEAKER_ID=1` で ECAPA-TDNN 声紋認証を有効化（お嬢様のみコマンド実行可能）
+  - マスターボイスプリント: `tmp/whispercpp-listen/tests/fixtures/master_voiceprint.npy`
+  - 閾値: `WHISPER_AGENT_SPEAKER_THRESHOLD`（既定 0.60、ライブマイク実測値 0.63〜0.78）
+  - 認証失敗時: 「声紋認証に失敗しました。もう一度お試しください。」と返答してコマンドをブロック
+  - マスター再生成: `cd tmp/whispercpp-listen && python3 prototype_speaker_id.py`
 
 ### 4) Webカメラ qwen3-vl daemon（tmux 管理）
 
@@ -243,20 +293,23 @@ cd ~/Workspaces/tmp/GOD_MODE && DISPLAY=${DESKTOP_DISPLAY} bash god_mode.sh stop
 ## まとめて確認（復旧完了チェック）
 
 ```bash
-tmux ls | rg 'voicevox-bg|vacuumtube-bg|whisper-server-ja|whisper-agent-ja|caption-overlay-poc|webcam-vision-daemon|god-mode-bg'
+tmux ls | rg 'voicevox-bg|vacuumtube-bg|whisper-server-ja|whisper-agent-ja|caption-overlay-poc|tauri-overlay|webcam-vision-daemon|god-mode-bg'
 curl -fsS http://127.0.0.1:50021/version
 curl -fsS http://127.0.0.1:9992/json/version
 curl -fsS http://127.0.0.1:11434/api/tags | jq -r '.models[].name' | rg '^qwen3-vl:' | head
 curl -fsS http://localhost:8765/status
+# Tauri オーバーレイ IPC 確認
+echo '{"type":"notify","text":"bringup OK"}' | nc -q1 127.0.0.1 47832
 ```
 
 期待される `tmux` セッション（通常運用）:
 
 - `voicevox-bg`
 - `vacuumtube-bg`
-- `whisper-server-ja`
+- `tauri-overlay`（字幕・ロック画面オーバーレイ / IPC :47832）
+- `whisper-server-ja`（STT_BACKEND=whisper のときのみ）
 - `whisper-agent-ja`
-- `caption-overlay-poc`
+- `caption-overlay-poc`（`tmux_listen_only.sh` が tauri-overlay と **別に** 起動する場合 — ポート競合に注意）
 - `webcam-vision-daemon`
 - `god-mode-bg`（起動スクリプト完了後は idle、GOD_MODE プロセス自体は nohup で稼働中）
 
@@ -292,7 +345,15 @@ curl -fsS http://localhost:8765/status
 - `~/vacuumtube.sh` 起動漏れ or `:9992` 未設定
 - 確認: `curl -fsS http://127.0.0.1:9992/json/version`
 
-### 4) GOD MODE の video server に繋がらない
+### 4) Tauri オーバーレイ（IPC :47832）に繋がらない
+
+- `tauri-overlay` セッションが未起動、またはポート競合で落ちている
+- 確認: `nc -zv 127.0.0.1 47832`
+- ログ確認: `tmux capture-pane -pt tauri-overlay -S -40` または `tail -20 /tmp/tauri-overlay.log`
+- 再起動手順は Step 3 を参照
+- 別プロセスがポートを使用中の場合: `lsof -i :47832` で PID を特定して kill
+
+### 5) GOD MODE の video server に繋がらない
 
 - `god_mode.sh restart` が失敗しているか、まだ起動中
 - `tmux capture-pane -pt god-mode-bg -S -40` でログを確認
