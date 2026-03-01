@@ -1,3 +1,8 @@
+---
+name: ntfy
+description: Send an ntfy push notification to call the user when work reaches a pause point and user confirmation or manual verification is needed.
+---
+
 # ntfy Skill
 
 ## 概要

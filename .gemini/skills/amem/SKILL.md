@@ -11,11 +11,17 @@ Run `amem` to operate local memory stored in `.amem`.
 ## Where to run
 
 - Primary: run in the project directory the user is currently working on.
+- Development fallback: use `/home/yuiseki/Workspaces/repos/amem` with `cargo run -q -- ...`.
 
 ## Pre-check
 
 1. Check command availability with `amem --help`.
+2. If not available, use this fallback:
 
+```bash
+cd /home/yuiseki/Workspaces/repos/amem
+cargo run -q -- --help
+```
 
 ## Core commands
 
@@ -142,7 +148,7 @@ amem copilot --resume-only
 ## Troubleshooting
 
 - `amem: command not found`
-  - Ensure `amem` is installed in `~/bin` or your PATH.
+  - Use `cargo run -q -- ...` in `/home/yuiseki/Workspaces/repos/amem`.
 - Search results are sparse
   - Run `amem index --rebuild`.
 - Need a different memory root
