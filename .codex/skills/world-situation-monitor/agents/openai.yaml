@@ -1,0 +1,4 @@
+interface:
+  display_name: "世界情勢モード"
+  short_description: "4つのPWAを世界情勢モードで並べる"
+  default_prompt: "世界情勢モードへ切り替え、4つのChromium PWAを固定の2x2レイアウトに配置する。"
