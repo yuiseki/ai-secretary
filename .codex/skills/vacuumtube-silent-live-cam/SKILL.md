@@ -135,6 +135,8 @@ node .codex/skills/vacuumtube-silent-live-cam/scripts/open_tv_channel_live_tile_
 - タイル文言は `【LIVE】新宿駅前のライブカメラ ... Shinjuku, Tokyo JAPAN | TBS NEWS DIG` のように長いので、`keyword` は短め（`新宿駅前のライブカメラ`）が安定
 - 取得済み `videoId` に直接 `#/watch?v=...` で飛ばした際、まれにアカウント選択画面に落ちることがある
   - その場合は既定フォーカスの `YuisekinTV` で `Enter` を 1 回送ると復帰し、そのまま目的動画に戻ることがある
+- TV の `#/browse?c=...` に街頭ライブのタイルが出てこない場合がある
+  - その場合は通常の `https://www.youtube.com/channel/<channelId>/streams` から `videoId` を拾い、TV の `#/watch` がホームに弾かれたら通常 web の `https://www.youtube.com/watch?v=...` を最終フォールバックにする
 
 ### サンシャイン60通りライブカメラ / 池袋
 

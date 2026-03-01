@@ -312,6 +312,15 @@ function buildWatchUrlFromBrowseUrl(browseUrl, videoId) {
   return `${u.origin}${u.pathname}#/watch?v=${videoId}`;
 }
 
+function buildWatchUrlFromTvHomeUrl(tvHomeUrl, videoId) {
+  const u = new URL(tvHomeUrl);
+  return `${u.origin}${u.pathname}${u.search}#/watch?v=${videoId}`;
+}
+
+function buildWebWatchUrl(videoId) {
+  return `https://www.youtube.com/watch?v=${videoId}`;
+}
+
 function normalizeDirectVideoIds(videoIds) {
   if (!Array.isArray(videoIds)) return [];
   const seen = new Set();
@@ -330,6 +339,105 @@ function pickDirectVideoId(match) {
   const ids = normalizeDirectVideoIds(match && match.videoIds);
   if (ids.length !== 1) return null;
   return ids[0];
+}
+
+function shouldAttemptScrollSearch(state) {
+  if (!state) return false;
+  if (!String(state.hash || '').startsWith('#/browse')) return false;
+  if (!Number.isFinite(state.visibleTileCount) || state.visibleTileCount <= 0) return false;
+  return !state.match;
+}
+
+function deriveWebChannelStreamsUrl(browseUrl) {
+  const u = new URL(browseUrl);
+  const channelIdMatch = String(u.hash || '').match(/(?:[?&]|^)c=([A-Za-z0-9_-]+)/);
+  const channelId = channelIdMatch ? channelIdMatch[1] : '';
+  if (!/^UC[A-Za-z0-9_-]+$/.test(channelId)) return null;
+  return `${u.origin}/channel/${channelId}/streams`;
+}
+
+function escapeRegExp(s) {
+  return String(s || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function findWebStreamsVideoId(html, keyword) {
+  const source = String(html || '');
+  const rawKeyword = String(keyword || '').trim();
+  if (!source || !rawKeyword) return null;
+  const titleRe = new RegExp(`"title":\\{"runs":\\[\\{"text":"([^"]*${escapeRegExp(rawKeyword)}[^"]*)"`, 'g');
+  let titleMatch;
+  while ((titleMatch = titleRe.exec(source)) !== null) {
+    const windowStart = Math.max(0, titleMatch.index - 12000);
+    const window = source.slice(windowStart, titleMatch.index);
+    const idRe = /"videoRenderer":\{"videoId":"([A-Za-z0-9_-]{11})"/g;
+    let idMatch;
+    let lastId = null;
+    while ((idMatch = idRe.exec(window)) !== null) {
+      lastId = idMatch[1];
+    }
+    if (lastId) return lastId;
+  }
+  return null;
+}
+
+function buildScrollBrowseExpr() {
+  return `(() => {
+    const seen = new Set();
+    const candidates = [];
+    const push = (el) => {
+      if (!el || seen.has(el)) return;
+      seen.add(el);
+      try {
+        const st = getComputedStyle(el);
+        const oy = String(st.overflowY || '');
+        if (!/(auto|scroll|overlay)/.test(oy)) return;
+        if (!(el.scrollHeight > el.clientHeight + 20)) return;
+        candidates.push(el);
+      } catch (_) {}
+    };
+    const walk = (root) => {
+      if (!root || seen.has(root)) return;
+      seen.add(root);
+      push(root.scrollingElement);
+      if (!root.querySelectorAll) return;
+      root.querySelectorAll('*').forEach((el) => {
+        push(el);
+        if (el.shadowRoot) walk(el.shadowRoot);
+      });
+    };
+    push(document.scrollingElement);
+    push(document.documentElement);
+    push(document.body);
+    walk(document);
+    candidates.sort((a, b) => {
+      const aSpan = (a.scrollHeight || 0) - (a.clientHeight || 0);
+      const bSpan = (b.scrollHeight || 0) - (b.clientHeight || 0);
+      return bSpan - aSpan;
+    });
+    const target = candidates[0] || document.scrollingElement || document.documentElement || document.body;
+    if (!target) return { ok: false, reason: 'no-scroll-target' };
+    const before = Number(target.scrollTop || 0);
+    const viewH = Number(target.clientHeight || window.innerHeight || 0);
+    const delta = Math.max(240, Math.round(viewH * 0.85));
+    try { target.scrollTop = before + delta; } catch (_) {}
+    let after = Number(target.scrollTop || 0);
+    if (after === before) {
+      try { target.scrollBy?.(0, delta); } catch (_) {}
+      after = Number(target.scrollTop || 0);
+    }
+    if (after === before) {
+      try { window.scrollBy(0, delta); } catch (_) {}
+      after = Number(target.scrollTop || 0);
+    }
+    return {
+      ok: after !== before,
+      before,
+      after,
+      delta,
+      tag: String(target.tagName || '').toLowerCase(),
+      id: String(target.id || ''),
+    };
+  })()`;
 }
 
 function verifyWatchState(state, verifyRegexObject) {
@@ -352,7 +460,64 @@ async function verifyLoop(cdp, fastExpr, verifyRegexObject, timeoutMs) {
   return { ok: false, state: last };
 }
 
-async function navigateAndCaptureBrowse(cdp, opts, fastExpr) {
+async function tryOpenViaWebStreamsFallback(cdp, opts, fastExpr) {
+  const webStreamsUrl = deriveWebChannelStreamsUrl(opts.browseUrl);
+  if (!webStreamsUrl) {
+    return { ok: false, reason: 'no-web-streams-url' };
+  }
+  const resp = await fetch(webStreamsUrl, {
+    headers: { 'User-Agent': 'Mozilla/5.0' },
+  });
+  if (!resp.ok) {
+    return { ok: false, reason: `web-streams-fetch-${resp.status}`, webStreamsUrl };
+  }
+  const html = await resp.text();
+  const videoId = findWebStreamsVideoId(html, opts.keyword);
+  if (!videoId) {
+    return { ok: false, reason: 'web-streams-no-match', webStreamsUrl };
+  }
+  const tvWatchUrl = buildWatchUrlFromTvHomeUrl(opts.tvHomeUrl, videoId);
+  await cdp.send('Page.navigate', { url: tvWatchUrl });
+  await cdp.waitLoad(4000);
+  const tvVerified = await verifyLoop(cdp, fastExpr, opts.verifyRegexObject, opts.verifyTimeoutMs);
+  if (tvVerified.ok) {
+    return {
+      ok: true,
+      method: 'web-streams-fallback-tv-watch',
+      webStreamsUrl,
+      videoId,
+      tvWatchUrl,
+      final: tvVerified.state,
+    };
+  }
+  const webWatchUrl = buildWebWatchUrl(videoId);
+  await cdp.send('Page.navigate', { url: webWatchUrl });
+  await cdp.waitLoad(4000);
+  const webVerified = await verifyLoop(cdp, fastExpr, opts.verifyRegexObject, opts.verifyTimeoutMs);
+  if (webVerified.ok) {
+    return {
+      ok: true,
+      method: 'web-streams-fallback-web-watch',
+      webStreamsUrl,
+      videoId,
+      tvWatchUrl,
+      webWatchUrl,
+      final: webVerified.state,
+    };
+  }
+  return {
+    ok: false,
+    reason: 'web-streams-verify-failed',
+    webStreamsUrl,
+    videoId,
+    tvWatchUrl,
+    webWatchUrl,
+    tvFinal: tvVerified.state,
+    final: webVerified.state,
+  };
+}
+
+async function navigateAndCaptureBrowse(cdp, opts, fastExpr, scrollExpr) {
   const { send, waitLoad, evalv } = cdp;
   await send('Page.navigate', { url: opts.tvHomeUrl });
   await waitLoad(6000);
@@ -362,27 +527,51 @@ async function navigateAndCaptureBrowse(cdp, opts, fastExpr) {
 
   const start = Date.now();
   let first = null;
+  let scrolls = 0;
+  let lastScrollAt = 0;
   while (Date.now() - start < opts.browseWindowMs) {
     const s = await evalv(fastExpr);
     if (!first) first = s;
+    if (s.match && String(s.hash || '').startsWith('#/browse')) {
+      return { ok: true, state: s, firstState: first, elapsedMs: Date.now() - start, scrolls };
+    }
+    if (shouldAttemptScrollSearch(s) && scrolls < 8) {
+      const now = Date.now();
+      if (now - lastScrollAt >= Math.max(180, opts.pollMs)) {
+        await evalv(scrollExpr);
+        scrolls += 1;
+        lastScrollAt = now;
+        await sleep(Math.max(120, opts.pollMs));
+        continue;
+      }
+    }
     if ((s.visibleTileCount || 0) > 0 && String(s.hash || '').startsWith('#/browse')) {
-      return { ok: true, state: s, firstState: first, elapsedMs: Date.now() - start };
+      return { ok: true, state: s, firstState: first, elapsedMs: Date.now() - start, scrolls };
     }
     await sleep(opts.pollMs);
   }
   const last = await evalv(fastExpr);
-  return { ok: false, state: last, firstState: first, elapsedMs: Date.now() - start };
+  return { ok: false, state: last, firstState: first, elapsedMs: Date.now() - start, scrolls };
 }
 
-async function tryOpenTarget(cdp, opts, fastExpr, focusExpr, round) {
-  const browse = await navigateAndCaptureBrowse(cdp, opts, fastExpr);
+async function tryOpenTarget(cdp, opts, fastExpr, focusExpr, scrollExpr, round) {
+  const browse = await navigateAndCaptureBrowse(cdp, opts, fastExpr, scrollExpr);
   if (!browse.ok) {
     return { ok: false, round, stage: 'browse-timeout', browse };
   }
 
   const state = browse.state;
   if (!state.match) {
-    return { ok: false, round, stage: 'no-match-tile', browse };
+    const webFallback = await tryOpenViaWebStreamsFallback(cdp, opts, fastExpr);
+    if (webFallback.ok) {
+      return {
+        ok: true,
+        round,
+        ...webFallback,
+        browse,
+      };
+    }
+    return { ok: false, round, stage: 'no-match-tile', browse, webFallback };
   }
 
   // Multiple IDs can be discovered from nested Polymer data on TV pages.
@@ -407,7 +596,7 @@ async function tryOpenTarget(cdp, opts, fastExpr, focusExpr, round) {
   }
 
   // Fallback: refetch browse state, focus matching tile, then try keyboard/mouse.
-  const browse2 = await navigateAndCaptureBrowse(cdp, opts, fastExpr);
+  const browse2 = await navigateAndCaptureBrowse(cdp, opts, fastExpr, scrollExpr);
   if (!browse2.ok || !browse2.state.match) {
     return { ok: false, round, stage: 'fallback-browse-failed', browse2 };
   }
@@ -474,11 +663,12 @@ async function main() {
   const cdp = await connectPageTarget(opts.cdpPort);
   const fastExpr = buildFastScanExpr(opts.keyword);
   const focusExpr = buildFocusMatchExpr(opts.keyword);
+  const scrollExpr = buildScrollBrowseExpr();
   const failures = [];
 
   try {
     for (let round = 1; round <= opts.retries; round++) {
-      const res = await tryOpenTarget(cdp, opts, fastExpr, focusExpr, round);
+      const res = await tryOpenTarget(cdp, opts, fastExpr, focusExpr, scrollExpr, round);
       if (res.ok) {
         console.log(JSON.stringify({ ok: true, cdpPort: opts.cdpPort, browseUrl: opts.browseUrl, keyword: opts.keyword, verifyRegex: opts.verifyRegex, pageTargetUrl: cdp.target.url, ...res }, null, 2));
         return;
@@ -503,8 +693,13 @@ if (require.main === module) {
 }
 
 module.exports = {
+  buildWebWatchUrl,
   buildWatchUrlFromBrowseUrl,
+  buildWatchUrlFromTvHomeUrl,
+  deriveWebChannelStreamsUrl,
+  findWebStreamsVideoId,
   parseArgs,
   pickDirectVideoId,
+  shouldAttemptScrollSearch,
   verifyWatchState,
 };
