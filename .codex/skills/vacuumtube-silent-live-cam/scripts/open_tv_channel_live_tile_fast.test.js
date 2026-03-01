@@ -4,12 +4,14 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 
 const {
+  buildDirectionalSearchKeySequence,
   buildWebWatchUrl,
   buildWatchUrlFromTvHomeUrl,
   deriveWebChannelStreamsUrl,
   findWebStreamsVideoId,
   pickDirectVideoId,
   shouldAttemptScrollSearch,
+  tryFindMatchViaDirectionalKeys,
   verifyWatchState,
 } = require('./open_tv_channel_live_tile_fast.js');
 
@@ -67,6 +69,21 @@ test('shouldAttemptScrollSearch returns false outside browse pages', () => {
   );
 });
 
+test('buildDirectionalSearchKeySequence builds a serpentine browse sweep', () => {
+  assert.deepEqual(
+    buildDirectionalSearchKeySequence({ columns: 2, rows: 3, resetLeft: 1, resetUp: 1 }),
+    [
+      'ArrowLeft',
+      'ArrowUp',
+      'ArrowRight', 'ArrowRight',
+      'ArrowDown',
+      'ArrowLeft', 'ArrowLeft',
+      'ArrowDown',
+      'ArrowRight', 'ArrowRight',
+    ],
+  );
+});
+
 test('deriveWebChannelStreamsUrl uses the browse channel id', () => {
   assert.equal(
     deriveWebChannelStreamsUrl('https://www.youtube.com/tv/@tbsnewsdig/streams#/browse?c=UC6AG81pAkf6Lbi_1VC5NmPA'),
@@ -108,4 +125,32 @@ test('findWebStreamsVideoId extracts the matching renderer video id', () => {
     '"videoRenderer":{"videoId":"BBBBBBBBBBB","title":{"runs":[{"text":"【LIVE】浅草・雷門前の様子 Asakusa, Tokyo JAPAN 【ライブカメラ】"}]}}',
   ].join('');
   assert.equal(findWebStreamsVideoId(html, '浅草・雷門前の様子'), 'BBBBBBBBBBB');
+});
+
+test('tryFindMatchViaDirectionalKeys stops after the first matched browse state', async () => {
+  const sentKeys = [];
+  const states = [
+    { hash: '#/browse?c=abc', visibleTileCount: 8, match: null },
+    { hash: '#/browse?c=abc', visibleTileCount: 8, match: { text: '浅草・雷門前の様子' } },
+  ];
+  const cdp = {
+    send: async (method, params) => {
+      if (method === 'Input.dispatchKeyEvent' && params && params.type === 'keyDown') {
+        sentKeys.push(params.key);
+      }
+    },
+    evalv: async () => states.shift(),
+  };
+
+  const out = await tryFindMatchViaDirectionalKeys(
+    cdp,
+    '(() => ({}))()',
+    ['ArrowDown', 'ArrowRight'],
+    { settleMs: 0 },
+  );
+
+  assert.equal(out.ok, true);
+  assert.equal(out.state.match.text, '浅草・雷門前の様子');
+  assert.deepEqual(sentKeys, ['ArrowDown', 'ArrowRight']);
+  assert.equal(out.steps.length, 2);
 });

@@ -347,11 +347,100 @@ function pickDirectVideoId(match) {
   return ids[0];
 }
 
+function clampInt(value, min, max) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return min;
+  return Math.max(min, Math.min(max, Math.round(n)));
+}
+
 function shouldAttemptScrollSearch(state) {
   if (!state) return false;
   if (!String(state.hash || '').startsWith('#/browse')) return false;
   if (!Number.isFinite(state.visibleTileCount) || state.visibleTileCount <= 0) return false;
   return !state.match;
+}
+
+function buildDirectionalSearchKeySequence(options = {}) {
+  const visibleTileCount = Number(options.visibleTileCount);
+  const columnsDefault = Number.isFinite(visibleTileCount) && visibleTileCount > 0
+    ? Math.max(4, Math.min(8, Math.ceil(visibleTileCount / 2)))
+    : 4;
+  const columns = clampInt(options.columns ?? columnsDefault, 1, 12);
+  const rowsDefault = Number.isFinite(visibleTileCount) && visibleTileCount > 0
+    ? Math.max(4, Math.min(8, Math.ceil(visibleTileCount / Math.max(1, columns)) + 4))
+    : 6;
+  const rows = clampInt(options.rows ?? rowsDefault, 1, 12);
+  const resetLeft = clampInt(options.resetLeft ?? columns, 0, 12);
+  const resetUp = clampInt(options.resetUp ?? 2, 0, 12);
+
+  const seq = [];
+  for (let i = 0; i < resetLeft; i++) seq.push('ArrowLeft');
+  for (let i = 0; i < resetUp; i++) seq.push('ArrowUp');
+
+  let dir = 'ArrowRight';
+  for (let row = 0; row < rows; row++) {
+    for (let col = 0; col < columns; col++) seq.push(dir);
+    if (row < rows - 1) seq.push('ArrowDown');
+    dir = dir === 'ArrowRight' ? 'ArrowLeft' : 'ArrowRight';
+  }
+  return seq;
+}
+
+function keyEventMeta(key) {
+  switch (String(key || '')) {
+    case 'ArrowLeft':
+      return { code: 'ArrowLeft', key: 'ArrowLeft', vk: 37 };
+    case 'ArrowUp':
+      return { code: 'ArrowUp', key: 'ArrowUp', vk: 38 };
+    case 'ArrowRight':
+      return { code: 'ArrowRight', key: 'ArrowRight', vk: 39 };
+    case 'ArrowDown':
+      return { code: 'ArrowDown', key: 'ArrowDown', vk: 40 };
+    default:
+      throw new Error(`unsupported navigation key: ${key}`);
+  }
+}
+
+async function pressNavigationKey(cdp, key) {
+  const meta = keyEventMeta(key);
+  await cdp.send('Input.dispatchKeyEvent', {
+    type: 'keyDown',
+    key: meta.key,
+    code: meta.code,
+    windowsVirtualKeyCode: meta.vk,
+    nativeVirtualKeyCode: meta.vk,
+  });
+  await cdp.send('Input.dispatchKeyEvent', {
+    type: 'keyUp',
+    key: meta.key,
+    code: meta.code,
+    windowsVirtualKeyCode: meta.vk,
+    nativeVirtualKeyCode: meta.vk,
+  });
+}
+
+async function tryFindMatchViaDirectionalKeys(cdp, fastExpr, sequence, options = {}) {
+  const settleMs = clampInt(options.settleMs ?? 140, 0, 5000);
+  const steps = [];
+  let last = null;
+
+  for (const key of Array.isArray(sequence) ? sequence : []) {
+    await pressNavigationKey(cdp, key);
+    if (settleMs > 0) await sleep(settleMs);
+    last = await cdp.evalv(fastExpr);
+    steps.push({
+      key,
+      hash: String((last && last.hash) || ''),
+      visibleTileCount: Number((last && last.visibleTileCount) || 0),
+      matched: !!(last && last.match),
+    });
+    if (last && last.match && String(last.hash || '').startsWith('#/browse')) {
+      return { ok: true, state: last, steps };
+    }
+  }
+
+  if (!last) last = await cdp.evalv(fastExpr);
+  return { ok: false, state: last, steps };
 }
 
 function deriveWebChannelStreamsUrl(browseUrl) {
@@ -566,7 +655,18 @@ async function tryOpenTarget(cdp, opts, fastExpr, focusExpr, scrollExpr, round) 
     return { ok: false, round, stage: 'browse-timeout', browse };
   }
 
-  const state = browse.state;
+  let state = browse.state;
+  let directionalSearch = null;
+  if (!state.match && shouldAttemptScrollSearch(state)) {
+    directionalSearch = await tryFindMatchViaDirectionalKeys(
+      cdp,
+      fastExpr,
+      buildDirectionalSearchKeySequence({ visibleTileCount: state.visibleTileCount }),
+    );
+    if (directionalSearch.ok) {
+      state = directionalSearch.state;
+    }
+  }
   if (!state.match) {
     const webFallback = await tryOpenViaWebStreamsFallback(cdp, opts, fastExpr);
     if (webFallback.ok) {
@@ -575,9 +675,10 @@ async function tryOpenTarget(cdp, opts, fastExpr, focusExpr, scrollExpr, round) 
         round,
         ...webFallback,
         browse,
+        directionalSearch: directionalSearch || undefined,
       };
     }
-    return { ok: false, round, stage: 'no-match-tile', browse, webFallback };
+    return { ok: false, round, stage: 'no-match-tile', browse, directionalSearch: directionalSearch || undefined, webFallback };
   }
 
   // Multiple IDs can be discovered from nested Polymer data on TV pages.
@@ -603,8 +704,24 @@ async function tryOpenTarget(cdp, opts, fastExpr, focusExpr, scrollExpr, round) 
 
   // Fallback: refetch browse state, focus matching tile, then try keyboard/mouse.
   const browse2 = await navigateAndCaptureBrowse(cdp, opts, fastExpr, scrollExpr);
-  if (!browse2.ok || !browse2.state.match) {
+  if (!browse2.ok) {
     return { ok: false, round, stage: 'fallback-browse-failed', browse2 };
+  }
+
+  let browse2State = browse2.state;
+  let directionalSearch2 = null;
+  if (!browse2State.match && shouldAttemptScrollSearch(browse2State)) {
+    directionalSearch2 = await tryFindMatchViaDirectionalKeys(
+      cdp,
+      fastExpr,
+      buildDirectionalSearchKeySequence({ visibleTileCount: browse2State.visibleTileCount }),
+    );
+    if (directionalSearch2.ok) {
+      browse2State = directionalSearch2.state;
+    }
+  }
+  if (!browse2State.match) {
+    return { ok: false, round, stage: 'fallback-browse-failed', browse2, directionalSearch2: directionalSearch2 || undefined };
   }
 
   const focusRes = await cdp.evalv(focusExpr);
@@ -620,8 +737,10 @@ async function tryOpenTarget(cdp, opts, fastExpr, focusExpr, scrollExpr, round) 
         round,
         method: 'focus+enter',
         videoId: m ? m[1] : null,
-        matchedTile: browse2.state.match,
+        matchedTile: browse2State.match,
         focusRes,
+        directionalSearch: directionalSearch || undefined,
+        directionalSearch2: directionalSearch2 || undefined,
         final: enterVerified.state,
       };
     }
@@ -638,8 +757,10 @@ async function tryOpenTarget(cdp, opts, fastExpr, focusExpr, scrollExpr, round) 
         round,
         method: 'cdp-mouse-center',
         videoId: m ? m[1] : null,
-        matchedTile: browse2.state.match,
+        matchedTile: browse2State.match,
         focusRes,
+        directionalSearch: directionalSearch || undefined,
+        directionalSearch2: directionalSearch2 || undefined,
         final: mouseVerified.state,
       };
     }
@@ -651,6 +772,8 @@ async function tryOpenTarget(cdp, opts, fastExpr, focusExpr, scrollExpr, round) 
     stage: 'interaction-failed',
     browse,
     browse2,
+    directionalSearch: directionalSearch || undefined,
+    directionalSearch2: directionalSearch2 || undefined,
     focusRes: focusRes || null,
     current: await cdp.evalv(fastExpr),
   };
@@ -725,6 +848,7 @@ if (require.main === module) {
 }
 
 module.exports = {
+  buildDirectionalSearchKeySequence,
   buildWebWatchUrl,
   buildWatchUrlFromBrowseUrl,
   buildWatchUrlFromTvHomeUrl,
@@ -733,5 +857,6 @@ module.exports = {
   parseArgs,
   pickDirectVideoId,
   shouldAttemptScrollSearch,
+  tryFindMatchViaDirectionalKeys,
   verifyWatchState,
 };
