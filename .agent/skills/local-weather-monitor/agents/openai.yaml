@@ -1,0 +1,4 @@
+interface:
+  display_name: "ローカル天気モード"
+  short_description: "3つの天気PWAを固定配置する"
+  default_prompt: "ローカル天気モードへ切り替え、3つのChromium PWAを固定レイアウトに配置する。"
