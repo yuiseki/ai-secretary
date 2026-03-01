@@ -312,6 +312,26 @@ function buildWatchUrlFromBrowseUrl(browseUrl, videoId) {
   return `${u.origin}${u.pathname}#/watch?v=${videoId}`;
 }
 
+function normalizeDirectVideoIds(videoIds) {
+  if (!Array.isArray(videoIds)) return [];
+  const seen = new Set();
+  const out = [];
+  for (const rawId of videoIds) {
+    const id = typeof rawId === 'string' ? rawId.trim() : '';
+    if (!/^[A-Za-z0-9_-]{11}$/.test(id)) continue;
+    if (seen.has(id)) continue;
+    seen.add(id);
+    out.push(id);
+  }
+  return out;
+}
+
+function pickDirectVideoId(match) {
+  const ids = normalizeDirectVideoIds(match && match.videoIds);
+  if (ids.length !== 1) return null;
+  return ids[0];
+}
+
 function verifyWatchState(state, verifyRegexObject) {
   if (!state || !/watch\?v=/.test(String(state.href || ''))) return false;
   const combined = `${state.watchText || ''} ${state.bodyHead || ''}`;
@@ -365,7 +385,9 @@ async function tryOpenTarget(cdp, opts, fastExpr, focusExpr, round) {
     return { ok: false, round, stage: 'no-match-tile', browse };
   }
 
-  const directId = (state.match.videoIds || []).find((id) => /^[A-Za-z0-9_-]{11}$/.test(id)) || null;
+  // Multiple IDs can be discovered from nested Polymer data on TV pages.
+  // Only trust direct navigation when the tile yields a single unambiguous ID.
+  const directId = pickDirectVideoId(state.match);
   if (directId) {
     const targetWatch = buildWatchUrlFromBrowseUrl(opts.browseUrl, directId);
     await cdp.send('Page.navigate', { url: targetWatch });
@@ -473,7 +495,16 @@ async function main() {
   }
 }
 
-main().catch((err) => {
-  console.error(err && err.stack ? err.stack : String(err));
-  process.exit(1);
-});
+if (require.main === module) {
+  main().catch((err) => {
+    console.error(err && err.stack ? err.stack : String(err));
+    process.exit(1);
+  });
+}
+
+module.exports = {
+  buildWatchUrlFromBrowseUrl,
+  parseArgs,
+  pickDirectVideoId,
+  verifyWatchState,
+};
