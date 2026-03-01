@@ -95,15 +95,36 @@ curl -fsS http://127.0.0.1:9992/json/version
 
 `tmp/whispercpp-listen/tmux_listen_only.sh` が以下をまとめて管理します。
 
-- `whisper-server-ja`
-- `whisper-agent-ja`
-- `caption-overlay-poc`
+**STT バックエンドは `STT_BACKEND` 環境変数で切り替えます（デフォルト: `whisper`）:**
 
-起動:
+| `STT_BACKEND` | 起動するセッション | レイテンシ | 精度 |
+|---------------|-------------------|------------|------|
+| `whisper`（既定）| `whisper-server-ja` + `whisper-agent-ja` + `caption-overlay-poc` | ~4500ms | 100% |
+| `moonshine` | `whisper-agent-ja` + `caption-overlay-poc`（server不要） | ~270ms | 96.6% |
+
+#### whisper バックエンド（既定）
 
 ```bash
 CAPTION_OVERLAY_DISPLAY="${DESKTOP_DISPLAY}" \
 CAPTION_OVERLAY_XAUTHORITY="$HOME/.Xauthority" \
+tmp/whispercpp-listen/tmux_listen_only.sh start-agent
+```
+
+#### moonshine バックエンド（高速・省メモリ・server不要）
+
+```bash
+STT_BACKEND=moonshine \
+CAPTION_OVERLAY_DISPLAY="${DESKTOP_DISPLAY}" \
+CAPTION_OVERLAY_XAUTHORITY="$HOME/.Xauthority" \
+tmp/whispercpp-listen/tmux_listen_only.sh start-agent
+```
+
+moonshine は `whisper-server-ja` セッションを起動しません。モデルは `voice_command_loop.py` プロセス内にロードされます。
+
+モデルサイズ変更（既定: `base`）:
+
+```bash
+STT_BACKEND=moonshine MOONSHINE_MODEL_SIZE=tiny \
 tmp/whispercpp-listen/tmux_listen_only.sh start-agent
 ```
 
@@ -123,8 +144,9 @@ tmp/whispercpp-listen/tmux_listen_only.sh logs-overlay
 
 補足:
 
-- 既定モデルは `ggml-small.bin`
+- whisper 既定モデルは `ggml-small.bin`
 - DJI マイクを明示したいときは `WHISPER_MIC_SOURCE=... tmp/whispercpp-listen/tmux_listen_only.sh restart-agent`
+- moonshine バックエンドは音声キャプチャに `ffmpeg`（`parec` 不要）を使用します
 
 ### 4) Webカメラ qwen3-vl daemon（tmux 管理）
 
