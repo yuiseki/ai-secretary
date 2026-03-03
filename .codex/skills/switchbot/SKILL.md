@@ -36,4 +36,4 @@ switchbot good-morning
 ## 運用ルール
 - 物理デバイスや家電に影響するコマンドは、ユーザーが明示的に求めたときだけ実行する。
 - 状態確認だけで足りる場合は、まず `switchbot devices` で現在の登録デバイスを把握する。
-- 日本語の高レベル意図（例: `おはよう`）は、このスキル側で解釈して `switchbot good-morning` に落とし込む。
+- 朝の高レベル意図（例: `おはよう`）は `good-morning` スキルから受け取り、このスキルでは `switchbot good-morning` の実行だけを担当する。
