@@ -125,6 +125,62 @@ echo '{"type":"lock_screen_hide"}' | nc -q1 127.0.0.1 47832
 - リビルドが必要な場合: `cd ~/Workspaces/tmp/tauri-caption-overlay-poc/src-tauri && PKG_CONFIG_PATH=/usr/lib/x86_64-linux-gnu/pkgconfig asdf exec cargo build`
 - `whisper-agent` が `tauri-overlay` とは別に `caption-overlay-poc` セッション経由でオーバーレイを使う場合は、ポート競合に注意（47832 は1プロセスのみ）
 
+### 3.5) Chromium ロック画面ブリッジを起動（`lock-screen-bridge` tmux セッション）
+
+Tauri の代わりに **Chromium でロック画面を表示**するためのブリッジサーバーです（4K 環境で滑らか）。
+ポート 47833 (TCP) + 18766 (WebSocket) + 18765 (HTTP static) を使用します。
+
+```bash
+# ブリッジ起動
+tmux has-session -t lock-screen-bridge 2>/dev/null && tmux kill-session -t lock-screen-bridge || true
+tmux new-session -d -s lock-screen-bridge \
+  "bash -lc 'cd ~/Workspaces/tmp/tauri-caption-overlay-poc && DISPLAY=${DESKTOP_DISPLAY} python3 lock_screen_bridge.py 2>&1 | tee /tmp/lock-screen-bridge.log'"
+sleep 2
+
+# Chromium ロック画面ウィンドウを起動
+DISPLAY=${DESKTOP_DISPLAY} chromium \
+  --app="http://127.0.0.1:18765/" \
+  --disable-background-timer-throttling \
+  --disable-renderer-backgrounding \
+  --no-first-run --no-default-browser-check \
+  2>/dev/null &
+```
+
+起動確認:
+
+```bash
+# ブリッジログ確認
+tail -5 /tmp/lock-screen-bridge.log
+# 期待: "Lock screen bridge ready."
+
+# ロック画面テスト
+python3 -c "
+import socket, json
+payload = json.dumps({'type': 'lock_screen_show', 'text': 'SYSTEM LOCKED'}) + '\n'
+with socket.create_connection(('127.0.0.1', 47833), timeout=3) as s:
+    s.sendall(payload.encode()); s.shutdown(socket.SHUT_WR)
+    print(s.recv(4096).decode().strip())
+"
+# 期待: {"ok": true}
+
+# 解除テスト
+python3 -c "
+import socket, json
+payload = json.dumps({'type': 'lock_screen_hide'}) + '\n'
+with socket.create_connection(('127.0.0.1', 47833), timeout=3) as s:
+    s.sendall(payload.encode()); s.shutdown(socket.SHUT_WR)
+    print(s.recv(4096).decode().strip())
+"
+```
+
+音声待受起動時は `WHISPER_AGENT_LOCK_SCREEN_IPC_PORT=47833` を指定:
+
+```bash
+WHISPER_AGENT_LOCK_SCREEN_IPC_PORT=47833 \
+STT_BACKEND=moonshine \
+... (通常の tmux_listen_only.sh start-agent コマンド)
+```
+
 ### 4) 音声待受（tmux 管理）
 
 `tmp/whispercpp-listen/tmux_listen_only.sh` が以下をまとめて管理します。
