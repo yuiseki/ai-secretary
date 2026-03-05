@@ -243,12 +243,14 @@ pactl get-sink-mute vacuumtube_silent
 - 各ポートが目的の `#/watch?v=...` にいる
 - `vacuumtube_silent` は `Mute: yes`
 
-## 既知の東京4地点プリセット（実績）
+## 既知の東京4地点プリセット（現行デフォルト）
 
-- `:9993` 渋谷 / FNN / `dfVK7ld38Ys`
-- `:9994` 新宿 / TBS NEWS DIG / `glJu8snzi78`
+- `:9993` 渋谷 / FNN / `GN9jUOILYYI`
+- `:9994` 秋葉原 / Cerevo / `Zq-D5z2n0EY`
 - `:9995` 池袋 / サンシャイン60通り / `TiDOEJxGtJI`
-- `:9996` 秋葉原 / Cerevo / `Zq-D5z2n0EY`
+- `:9996` 浅草 / TBS NEWS DIG / `urE7veQRlrQ`
+  - fallback: 三ノ輪 / `MZEvlESu6I0`
+  - fallback: 横浜みなとみらい
 
 ## トラブルシュート
 
@@ -275,7 +277,7 @@ pactl get-sink-mute vacuumtube_silent
 ## 手動確認（必須）
 
 - 4台が右下 FHD 領域に `2x2` で収まっているか
-- 各ウィンドウが意図した地域（渋谷/新宿/池袋/秋葉原）になっているか
+- 各ウィンドウが意図した地域（渋谷/秋葉原/池袋/浅草）になっているか
 - 音が出ていないか（`vacuumtube_silent`）
 
 ## 関連スキル
@@ -283,4 +285,3 @@ pactl get-sink-mute vacuumtube_silent
 - `vacuumtube-silent-live-cam`（無音複数起動と TV ライブタイル選択の基盤）
 - `desktop-windows-layout`（X11/KDE のウィンドウ配置・確認）
 - `system-reboot-bringup`（再起動後の常駐群復旧）
-

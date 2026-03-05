@@ -260,12 +260,14 @@ pactl get-sink-mute vacuumtube_silent
 - 各ポートが目的の `#/watch?v=...` にいる
 - `vacuumtube_silent` は `Mute: yes`
 
-## 推奨の東京4地点マッピング（例）
+## 推奨の東京4地点マッピング（現行デフォルト）
 
 - 左上 (`:9993`): 渋谷 / FNN
-- 右上 (`:9994`): 新宿 / TBS NEWS DIG
+- 右上 (`:9994`): 秋葉原 / Cerevo
 - 左下 (`:9995`): 池袋 / サンシャイン60通り
-- 右下 (`:9996`): 秋葉原 / Cerevo
+- 右下 (`:9996`): 浅草 / TBS NEWS DIG
+  - fallback: 三ノ輪
+  - fallback: 横浜みなとみらい
 
 必要に応じて、ポートと地域の対応は入れ替えてよい。
 
@@ -308,4 +310,3 @@ pactl get-sink-mute vacuumtube_silent
 - `vacuumtube-live-cam-tile`（右下 FHD 領域版）
 - `desktop-windows-layout`（X11/KDE のウィンドウ配置・確認）
 - `system-reboot-bringup`（再起動後の常駐群復旧）
-
