@@ -122,19 +122,107 @@ echo '{"type":"lock_screen_hide"}' | nc -q1 127.0.0.1 47832
 - リビルドが必要な場合: `cd ~/Workspaces/tmp/tauri-caption-overlay-poc/src-tauri && PKG_CONFIG_PATH=/usr/lib/x86_64-linux-gnu/pkgconfig asdf exec cargo build`
 - `whisper-agent` が `tauri-overlay` とは別に `caption-overlay-poc` セッション経由でオーバーレイを使う場合は、ポート競合に注意（47832 は1プロセスのみ）
 
-### 3-b) 音声待受 + 字幕オーバーレイ（tmux 管理）
+### 3.5) Chromium ロック画面ブリッジを起動（`lock-screen-bridge` tmux セッション）
+
+Tauri の代わりに **Chromium でロック画面を表示**するためのブリッジサーバーです（4K 環境で滑らか）。
+ポート 47833 (TCP) + 18766 (WebSocket) + 18765 (HTTP static) を使用します。
+
+```bash
+# ブリッジ起動
+tmux has-session -t lock-screen-bridge 2>/dev/null && tmux kill-session -t lock-screen-bridge || true
+tmux new-session -d -s lock-screen-bridge \
+  "bash -lc 'cd ~/Workspaces/tmp/tauri-caption-overlay-poc && DISPLAY=${DESKTOP_DISPLAY} python3 lock_screen_bridge.py 2>&1 | tee /tmp/lock-screen-bridge.log'"
+sleep 2
+
+# Chromium ロック画面ウィンドウを起動
+DISPLAY=${DESKTOP_DISPLAY} chromium \
+  --app="http://127.0.0.1:18765/" \
+  --disable-background-timer-throttling \
+  --disable-renderer-backgrounding \
+  --no-first-run --no-default-browser-check \
+  2>/dev/null &
+```
+
+起動確認:
+
+```bash
+# ブリッジログ確認
+tail -5 /tmp/lock-screen-bridge.log
+# 期待: "Lock screen bridge ready."
+
+# ロック画面テスト
+python3 -c "
+import socket, json
+payload = json.dumps({'type': 'lock_screen_show', 'text': 'SYSTEM LOCKED'}) + '\n'
+with socket.create_connection(('127.0.0.1', 47833), timeout=3) as s:
+    s.sendall(payload.encode()); s.shutdown(socket.SHUT_WR)
+    print(s.recv(4096).decode().strip())
+"
+# 期待: {"ok": true}
+
+# 解除テスト
+python3 -c "
+import socket, json
+payload = json.dumps({'type': 'lock_screen_hide'}) + '\n'
+with socket.create_connection(('127.0.0.1', 47833), timeout=3) as s:
+    s.sendall(payload.encode()); s.shutdown(socket.SHUT_WR)
+    print(s.recv(4096).decode().strip())
+"
+```
+
+音声待受起動時は `WHISPER_AGENT_LOCK_SCREEN_IPC_PORT=47833` を指定:
+
+```bash
+WHISPER_AGENT_LOCK_SCREEN_IPC_PORT=47833 \
+STT_BACKEND=moonshine \
+... (通常の tmux_listen_only.sh start-agent コマンド)
+```
+
+### 4) 音声待受（tmux 管理）
 
 `tmp/whispercpp-listen/tmux_listen_only.sh` が以下をまとめて管理します。
 
-- `whisper-server-ja`
-- `whisper-agent-ja`
-- `caption-overlay-poc`
+**STT バックエンドは `STT_BACKEND` 環境変数で切り替えます（デフォルト: `whisper`）:**
 
-起動:
+| `STT_BACKEND` | 起動するセッション | レイテンシ | 精度 |
+|---------------|-------------------|------------|------|
+| `whisper`（既定）| `whisper-server-ja` + `whisper-agent-ja` + `caption-overlay-poc` | ~4500ms | 100% |
+| `moonshine` | `whisper-agent-ja` + `caption-overlay-poc`（server不要） | ~270ms | 96.6% |
+
+#### whisper バックエンド（既定）
 
 ```bash
 CAPTION_OVERLAY_DISPLAY="${DESKTOP_DISPLAY}" \
 CAPTION_OVERLAY_XAUTHORITY="$HOME/.Xauthority" \
+tmp/whispercpp-listen/tmux_listen_only.sh start-agent
+```
+
+#### moonshine バックエンド + 声紋認証（推奨構成）
+
+```bash
+STT_BACKEND=moonshine \
+WHISPER_AGENT_SPEAKER_ID=1 \
+CAPTION_OVERLAY_DISPLAY="${DESKTOP_DISPLAY}" \
+CAPTION_OVERLAY_XAUTHORITY="$HOME/.Xauthority" \
+tmp/whispercpp-listen/tmux_listen_only.sh start-agent
+```
+
+#### moonshine バックエンド（声紋認証なし）
+
+```bash
+STT_BACKEND=moonshine \
+CAPTION_OVERLAY_DISPLAY="${DESKTOP_DISPLAY}" \
+CAPTION_OVERLAY_XAUTHORITY="$HOME/.Xauthority" \
+tmp/whispercpp-listen/tmux_listen_only.sh start-agent
+```
+
+moonshine は `whisper-server-ja` セッションを起動しません。モデルは `voice_command_loop.py` プロセス内にロードされます。
+
+モデルサイズ変更（既定: `base`）:
+
+```bash
+STT_BACKEND=moonshine MOONSHINE_MODEL_SIZE=tiny \
+WHISPER_AGENT_SPEAKER_ID=1 \
 tmp/whispercpp-listen/tmux_listen_only.sh start-agent
 ```
 
@@ -154,10 +242,16 @@ tmp/whispercpp-listen/tmux_listen_only.sh logs-overlay
 
 補足:
 
-- 既定モデルは `ggml-small.bin`
+- whisper 既定モデルは `ggml-small.bin`
 - DJI マイクを明示したいときは `WHISPER_MIC_SOURCE=... tmp/whispercpp-listen/tmux_listen_only.sh restart-agent`
+- moonshine バックエンドは音声キャプチャに `ffmpeg`（`parec` 不要）を使用します
+- `WHISPER_AGENT_SPEAKER_ID=1` で ECAPA-TDNN 声紋認証を有効化（お嬢様のみコマンド実行可能）
+  - マスターボイスプリント: `tmp/whispercpp-listen/tests/fixtures/master_voiceprint.npy`
+  - 閾値: `WHISPER_AGENT_SPEAKER_THRESHOLD`（既定 0.60、ライブマイク実測値 0.63〜0.78）
+  - 認証失敗時: 「声紋認証に失敗しました。もう一度お試しください。」と返答してコマンドをブロック
+  - マスター再生成: `cd tmp/whispercpp-listen && python3 prototype_speaker_id.py`
 
-### 4) GOD MODE（ウェブカメラ + 顔認識オーバーレイ）を起動（tmux 管理）
+### 5) GOD MODE（ウェブカメラ + 顔認識オーバーレイ）を起動（tmux 管理）
 
 GOD MODE はリアルタイム映像をデスクトップ上にオーバーレイ表示する「映像表示系」です。
 
@@ -222,19 +316,22 @@ cd ~/Workspaces/tmp/GOD_MODE && DISPLAY=${DESKTOP_DISPLAY} bash god_mode.sh stop
 ## まとめて確認（復旧完了チェック）
 
 ```bash
-tmux ls | rg 'voicevox-bg|vacuumtube-bg|whisper-server-ja|whisper-agent-ja|caption-overlay-poc|god-mode-bg'
+tmux ls | rg 'voicevox-bg|vacuumtube-bg|whisper-server-ja|whisper-agent-ja|caption-overlay-poc|tauri-overlay|god-mode-bg'
 curl -fsS http://127.0.0.1:50021/version
 curl -fsS http://127.0.0.1:9992/json/version
 curl -fsS http://localhost:8765/status
+# Tauri オーバーレイ IPC 確認
+echo '{"type":"notify","text":"bringup OK"}' | nc -q1 127.0.0.1 47832
 ```
 
 期待される `tmux` セッション（通常運用）:
 
 - `voicevox-bg`
 - `vacuumtube-bg`
-- `whisper-server-ja`
+- `tauri-overlay`（字幕・ロック画面オーバーレイ / IPC :47832）
+- `whisper-server-ja`（STT_BACKEND=whisper のときのみ）
 - `whisper-agent-ja`
-- `caption-overlay-poc`
+- `caption-overlay-poc`（`tmux_listen_only.sh` が tauri-overlay と **別に** 起動する場合 — ポート競合に注意）
 - `god-mode-bg`（起動スクリプト完了後は idle、GOD_MODE プロセス自体は nohup で稼働中）
 
 注意:
@@ -261,14 +358,22 @@ curl -fsS http://localhost:8765/status
 - `~/vacuumtube.sh` 起動漏れ or `:9992` 未設定
 - 確認: `curl -fsS http://127.0.0.1:9992/json/version`
 
-### 3) GOD MODE の video server に繋がらない
+### 4) Tauri オーバーレイ（IPC :47832）に繋がらない
+
+- `tauri-overlay` セッションが未起動、またはポート競合で落ちている
+- 確認: `nc -zv 127.0.0.1 47832`
+- ログ確認: `tmux capture-pane -pt tauri-overlay -S -40` または `tail -20 /tmp/tauri-overlay.log`
+- 再起動手順は Step 3 を参照
+- 別プロセスがポートを使用中の場合: `lsof -i :47832` で PID を特定して kill
+
+### 5) GOD MODE の video server に繋がらない
 
 - `god_mode.sh restart` が失敗しているか、まだ起動中
 - `tmux capture-pane -pt god-mode-bg -S -40` でログを確認
 - `DISPLAY` が合っていないと Chromium ウィンドウが開かない（step 0 で確認した値を使うこと）
 - 手動で再起動: `cd ~/Workspaces/tmp/GOD_MODE && DISPLAY=${DESKTOP_DISPLAY} bash god_mode_restart.sh`
 
-### 4) GOD MODE ウィンドウが前面に出たまま戻らない
+### 6) GOD MODE ウィンドウが前面に出たまま戻らない
 
 - `--backmost` の KWin スクリプトが効いていない可能性
 - 手動で最背面に: `cd ~/Workspaces/tmp/GOD_MODE && DISPLAY=${DESKTOP_DISPLAY} bash god_mode.sh layout --backmost`

@@ -1,63 +1,63 @@
 ---
 name: amem
 description: |
-  `amem` コマンドを使って AI 秘書向けローカルメモリー（.amem）を初期化・追記・検索・一覧・日次確認する。ユーザーが「amemで記録して」「記憶を検索して」「今日のコンテキストを見たい」など依頼したときに使う。
+  Use the `amem` command to initialize, append, search, list, and review daily snapshots for local assistant memory (`.amem`). Use this when the user asks things like "log this with amem", "search memory", or "show today's context".
 ---
 
 # amem CLI Skill
 
-`amem` を実行して、`.amem` ベースのメモリー運用を行う。
+Run `amem` to operate local memory stored in `.amem`.
 
-## 実行場所
+## Where to run
 
-- 基本実行: ユーザーが対象にしているプロジェクトディレクトリで実行する。
-- 開発フォールバック: `/home/yuiseki/Workspaces/repos/amem` で `cargo run -q -- ...` を使う。
+- Primary: run in the project directory the user is currently working on.
+- Development fallback: use `/home/yuiseki/Workspaces/repos/amem` with `cargo run -q -- ...`.
 
-## 事前確認
+## Pre-check
 
-1. `amem --help` でコマンドが存在するか確認する。
-2. 見つからない場合はフォールバックとして以下を使う:
+1. Check command availability with `amem --help`.
+2. If not available, use this fallback:
 
 ```bash
 cd /home/yuiseki/Workspaces/repos/amem
 cargo run -q -- --help
 ```
 
-## 主要コマンド
+## Core commands
 
-### 1. 初期化
+### 1. Initialize
 
 ```bash
 amem init
 ```
 
-- `.amem` のスキャフォールドを作成する。
-- 既存ファイルは上書きしない（idempotent）。
+- Creates the `.amem` scaffold.
+- Idempotent and non-destructive for existing files.
 
-### 2. メモリーディレクトリ確認
+### 2. Show active memory directory
 
 ```bash
 amem which
 amem which --json
 ```
 
-### 3. 追記（高速）
+### 3. Fast append
 
 ```bash
-source ~/.config/yuiclaw/.env; amem keep "東京で散歩した"
-source ~/.config/yuiclaw/.env; amem keep "ミーティングメモ" --kind inbox
-source ~/.config/yuiclaw/.env; amem keep "振り返り" --date 2026-02-21 --source assistant
+amem keep "Went for a walk in Tokyo"
+amem keep "Meeting note" --kind inbox
+amem keep "Retrospective note" --date 2026-02-21 --source assistant
 ```
 
-### 4. 検索
+### 4. Search
 
 ```bash
-amem search 東京 --top-k 5
-amem remember 東京 --top-k 5
-amem search "明日の予定" --json
+amem search Tokyo --top-k 5
+amem remember Tokyo --top-k 5
+amem search "tomorrow plan" --json
 ```
 
-### 5. 一覧
+### 5. List entries
 
 ```bash
 amem list
@@ -65,7 +65,7 @@ amem ls --kind activity --limit 20
 amem list --path "activity/**" --date 2026-02-21
 ```
 
-### 6. 今日のスナップショット
+### 6. Today snapshot
 
 ```bash
 amem today
@@ -73,75 +73,83 @@ amem today --date 2026-02-21
 amem today --json
 ```
 
-### 7. 構造化キャプチャ（明示指定）
+### 7. Structured capture (explicit)
 
 ```bash
-amem capture --kind activity --text "渋谷で打ち合わせ"
-amem capture --kind inbox --text "後で読む記事"
+amem capture --kind activity --text "Meeting in Shibuya"
+amem capture --kind inbox --text "Article to read later"
 ```
 
-### 8. タスク用コンテキスト生成
+### 8. Task context assembly
 
 ```bash
-amem context --task "明日の移動計画"
-amem context --task "週次レビュー" --json
+amem context --task "tomorrow travel plan"
+amem context --task "weekly review" --json
 ```
 
-### 9. インデックス更新
+### 9. Rebuild/search index
 
 ```bash
 amem index
 amem index --rebuild
 ```
 
-### 10. 監視
+### 10. Watch mode
 
 ```bash
 amem watch
 ```
 
-### 11. Codexブリッジ起動
+### 11. Codex bridge
 
 ```bash
 amem codex
-amem codex --prompt "今日の優先タスクを整理して"
+amem codex --prompt "organize today's priority tasks"
 amem codex --resume-only
 ```
 
-### 12. Geminiブリッジ起動
+### 12. Gemini bridge
 
 ```bash
 amem gemini
-amem gemini --prompt "今日の優先タスクを整理して"
+amem gemini --prompt "organize today's priority tasks"
 amem gemini --resume-only
 ```
 
-### 13. Claudeブリッジ起動
+### 13. Claude bridge
 
 ```bash
 amem claude
-amem claude --prompt "今日の優先タスクを整理して"
+amem claude --prompt "organize today's priority tasks"
 amem claude --resume-only
 ```
 
-## グローバルオプション
+### 14. Copilot bridge
 
-- `--memory-dir <path>`: `.amem` 以外のメモリールートを明示する。
-- `--json`: 機械可読な JSON 出力を優先する。
+```bash
+amem copilot
+amem copilot --prompt "organize today's priority tasks"
+amem copilot --resume-only
+```
 
-## 推奨運用フロー
+## Global options
 
-1. 初回: `amem init`
-2. 日次記録: `source ~/.config/yuiclaw/.env; amem keep "..."`
-3. 作業前確認: `amem today`
-4. 必要時検索: `amem search ...`（または `amem remember ...`）
-5. 定期同期: `amem index`
+- `--memory-dir <path>`: explicitly set the memory root (instead of default `~/.amem`).
+- `--json`: prefer machine-readable JSON output.
 
-## トラブルシュート
+## Recommended workflow
+
+1. First run: `amem init`
+2. Daily logging: `amem keep "..."`
+3. Pre-work check: `amem today`
+4. Search as needed: `amem search ...` (or `amem remember ...`)
+5. Periodic refresh: `amem index`
+
+## Troubleshooting
 
 - `amem: command not found`
-  - `/home/yuiseki/Workspaces/repos/amem` で `cargo run -q -- ...` を使う。
-- 検索結果が少ない
-  - `amem index --rebuild` を実行して再構築する。
-- 別ディレクトリの `.amem` を使いたい
-  - `--memory-dir <abs/path/to/.amem>` を付与する。
+  - Use `cargo run -q -- ...` in `/home/yuiseki/Workspaces/repos/amem`.
+- Search results are sparse
+  - Run `amem index --rebuild`.
+- Need a different memory root
+  - Add `--memory-dir <abs/path/to/.amem>`.

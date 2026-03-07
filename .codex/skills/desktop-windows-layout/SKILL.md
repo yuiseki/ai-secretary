@@ -149,9 +149,52 @@ wmctrl -lG | awk -v id="$WIN_ID" '$1==id {print}'
 
 ### 注意
 
-- 全画面解除後、**元のタイルサイズに完全復元されない**ことがある（KWin が別サイズで復元）
-- 必要に応じて Quick Tile を再適用する
-- ただし Quick Tile 再適用も効かない場合がある。最終結果は「実際の geometry を再取得して報告」を優先する
+- `wmctrl` はクライアント領域のサイズを扱うため、タイトルバー分だけズレが生じることがあります。
+- **ピクセルパーフェクトな配置が必要な場合は、後述の KWin Scripting 方式を強く推奨します。**
+
+## 究極の4分割スナップ (KWin Scripting)
+
+4K画面（4096x2160）において、下部タスクバー（44px）を除いた有効領域を正確に4分割（各 2048x1058）し、タイトルバーを消して隙間なく敷き詰める手法です。
+
+### 1. 配置先（有効領域: 4096 x 2116）
+
+- **左上 (Top-Left):** `x: 0, y: 0, w: 2048, h: 1058`
+- **右上 (Top-Right):** `x: 2048, y: 0, w: 2048, h: 1058`
+- **左下 (Bottom-Left):** `x: 0, y: 1058, w: 2048, h: 1058`
+- **右下 (Bottom-Right):** `x: 2048, y: 1058, w: 2048, h: 1058`
+
+### 2. 実行手順（JavaScript テンプレート）
+
+以下のスクリプトを `/tmp/quadrant_snap.js` として保存し、`qdbus` で実行します。
+
+```javascript
+var clients = workspace.clientList();
+for (var i = 0; i < clients.length; i++) {
+    var c = clients[i];
+    
+    // 例: "GOD MODE" を左下に配置
+    if (c.caption.indexOf("GOD MODE") !== -1) {
+        c.fullScreen = false;
+        c.noBorder = true;    // 枠を消して隙間を無くす
+        c.keepAbove = true;   // 常に最前面
+        c.onAllDesktops = true;
+        var g = c.frameGeometry;
+        g.x = 0; g.y = 1058; g.width = 2048; g.height = 1058;
+        c.frameGeometry = g;
+    }
+    // 他のウィンドウも同様に caption で判定して配置
+}
+```
+
+実行コマンド:
+```bash
+export DISPLAY=:0
+PLUGIN="snap_$(date +%s)"
+qdbus org.kde.KWin /Scripting org.kde.kwin.Scripting.loadScript "/tmp/quadrant_snap.js" "$PLUGIN"
+qdbus org.kde.KWin /Scripting org.kde.kwin.Scripting.start
+sleep 0.5
+qdbus org.kde.KWin /Scripting org.kde.kwin.Scripting.unloadScript "$PLUGIN"
+```
 
 ## 実務で使う確認コマンド集
 

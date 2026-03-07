@@ -17,8 +17,8 @@ description: 30分ごとに秘書モードで Yamato/Gmail/Tasks/Calendar を巡
 
 ## 実行順序（固定）
 
-1. `.codex/skills/weather/SKILL.md` (`make run`) で天気を取得
-2. `.codex/skills/news/SKILL.md` (`make run`) でニュースを取得
+1. `.codex/skills/weather/SKILL.md` で天気を取得
+2. `.codex/skills/news/SKILL.md` でニュースを取得
 3. `.codex/skills/gog-gmail/SKILL.md` および `.codex/skills/gog-calendar/SKILL.md` で情報を取得
 4. `.codex/skills/hatebu/SKILL.md` (`hatebu ls --json`) でブックマークを取得
 5. `.codex/skills/gyazo/SKILL.md` (`gyazo ls --limit 20 --json`) でキャプチャを取得
@@ -98,11 +98,11 @@ find /home/yuiseki/Workspaces/.ai-secretary/heartbeat/personalization-rules -nam
 
 - **Weather:** 現在地の天気を取得
   ```bash
-  cd /home/yuiseki/Workspaces/repos/weathercli && make run > /dev/null && cp cache/current.json /home/yuiseki/Workspaces/.ai-secretary/heartbeat/cache/weather.json
+  weathercli --json > /home/yuiseki/Workspaces/.ai-secretary/heartbeat/cache/weather.json
   ```
 - **News:** 最新ニュースを取得
   ```bash
-  cd /home/yuiseki/Workspaces/repos/newscli && make run > /dev/null && cp cache/news.json /home/yuiseki/Workspaces/.ai-secretary/heartbeat/cache/news.json
+  newscli --json > /home/yuiseki/Workspaces/.ai-secretary/heartbeat/cache/news.json
   ```
 - **Gmail:** `newer_than:1d` で最近のメールを取得
   ```bash

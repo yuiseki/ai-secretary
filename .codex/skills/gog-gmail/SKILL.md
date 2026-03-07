@@ -66,6 +66,18 @@ description: Gmail の未読確認を gog CLI で実行し、TTY・keyring・認
 - 20 件で不足する場合は `--max 50` または `--all` を使う。
 - TTY 環境では keyring パスフレーズプロンプトが標準出力に混ざることがあるため、`sed -n '/^{/,$p'` で JSON 開始行までを捨てる。
 
+## フィルタリングルール
+
+重要なメールを絞り込む際、以下の通知はノイズとして無視する:
+
+- Vercel の preview デプロイ失敗通知 (`Failed preview deployment`)
+- GitHub Actions の実行失敗通知 (`Run failed`, `Run cancelled`)
+
+推奨される検索クエリ:
+```bash
+/home/yuiseki/bin/gog --account yuiseki@gmail.com gmail search 'is:unread in:inbox -category:{social updates promotions} -subject:("Failed preview deployment" OR "Run failed" OR "Run cancelled")' --max 20 --json
+```
+
 ## 次から活用できるノウハウ
 
 - 「未読があるかだけ」を判定するときは `--max 1 --fail-empty` を使い、件数取得や詳細取得を分離する。
