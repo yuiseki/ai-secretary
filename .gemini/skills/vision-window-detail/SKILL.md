@@ -1,12 +1,33 @@
+---
+name: vision-window-detail
+description: 指定ウィンドウだけをキャプチャして、Ollama Vision で表示内容を詳細に確認する。特定アプリの表示崩れ、再生状態、ボタン表示の確認時に使う。
+---
+
 # vision-window-detail
 
-特定のウィンドウの視覚的詳細状況認識
-
 ## 用途
-- `VOICEVOX` や `VacuumTube` などの個別アプリの表示内容、設定、再生状況を把握する。
-- 特定のウィンドウ内のボタンやテキストが正しく表示されているか確認する。
+- 特定ウィンドウ（例: VOICEVOX、VacuumTube）の状態を詳細に把握する。
+- 画面内の要素や表示文言が正しいか確認する。
 
 ## 実行手順
-1. `DISPLAY=:0 wmctrl -l` で対象ウィンドウのタイトルを特定。
-2. `DISPLAY=:0 import -window <WINDOW_ID> tmp/vision_window_detail.png` でスクリーンショットを撮影。
-3. `python3 tmp/vision_helper.py tmp/vision_window_detail.png "このウィンドウに何が映っているか詳細に説明してください。"` を実行。
+1. 対象ウィンドウを一覧表示する。
+```bash
+DISPLAY=:0 wmctrl -l
+```
+
+2. 対象のウィンドウ ID を指定して撮影する。
+```bash
+WINDOW_ID="<ID>"
+DISPLAY=:0 import -window "$WINDOW_ID" /tmp/vision_window_detail.png
+```
+
+3. 画像を Vision で解析する。
+```bash
+/home/yuiseki/Workspaces/.gemini/skills/vision-window-detail/scripts/analyze_image.sh \
+  /tmp/vision_window_detail.png \
+  "このウィンドウに何が表示されているか、重要な要素を中心に説明してください。"
+```
+
+## 補足
+- 既定モデルは `qwen3.5:4b`。
+- 必要に応じて第3引数にモデルを指定する。

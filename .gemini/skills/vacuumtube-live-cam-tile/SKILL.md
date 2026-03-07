@@ -18,8 +18,8 @@ description: "VacuumTube を無音の複数インスタンス（例: 4台, CDP :
 ## 前提
 
 - 既存スキル `vacuumtube-silent-live-cam` が使える状態
-  - `.codex/skills/vacuumtube-silent-live-cam/scripts/start_silent_instance.sh`
-  - `.codex/skills/vacuumtube-silent-live-cam/scripts/open_tv_channel_live_tile_fast.js`
+  - `.gemini/skills/vacuumtube-silent-live-cam/scripts/start_silent_instance.sh`
+  - `.gemini/skills/vacuumtube-silent-live-cam/scripts/open_tv_channel_live_tile_fast.js`
 - `VacuumTube` メインインスタンス（`vacuumtube-bg`, `:9992`）は維持したまま運用する前提
 - KDE Plasma + KWin (X11)
 - `tmux`, `curl`, `jq`, `node`, `pactl`, `lsof`, `wmctrl`, `xdotool`, `qdbus`, `xdpyinfo`
@@ -52,28 +52,28 @@ description: "VacuumTube を無音の複数インスタンス（例: 4台, CDP :
 
 ```bash
 # 1台目（既存運用例）
-.codex/skills/vacuumtube-silent-live-cam/scripts/start_silent_instance.sh \
+.gemini/skills/vacuumtube-silent-live-cam/scripts/start_silent_instance.sh \
   --session vacuumtube-bg-2 \
   --port 9993 \
   --sink vacuumtube_silent \
   --instance-dir ~/.cache/yuiclaw/vacuumtube-multi/instance2
 
 # 2台目
-.codex/skills/vacuumtube-silent-live-cam/scripts/start_silent_instance.sh \
+.gemini/skills/vacuumtube-silent-live-cam/scripts/start_silent_instance.sh \
   --session vacuumtube-bg-3 \
   --port 9994 \
   --sink vacuumtube_silent \
   --instance-dir ~/.cache/yuiclaw/vacuumtube-multi/instance3
 
 # 3台目
-.codex/skills/vacuumtube-silent-live-cam/scripts/start_silent_instance.sh \
+.gemini/skills/vacuumtube-silent-live-cam/scripts/start_silent_instance.sh \
   --session vacuumtube-bg-4 \
   --port 9995 \
   --sink vacuumtube_silent \
   --instance-dir ~/.cache/yuiclaw/vacuumtube-multi/instance4
 
 # 4台目
-.codex/skills/vacuumtube-silent-live-cam/scripts/start_silent_instance.sh \
+.gemini/skills/vacuumtube-silent-live-cam/scripts/start_silent_instance.sh \
   --session vacuumtube-bg-5 \
   --port 9996 \
   --sink vacuumtube_silent \
@@ -102,7 +102,7 @@ pactl get-sink-mute vacuumtube_silent
 ### 渋谷（FNN）
 
 ```bash
-node .codex/skills/vacuumtube-silent-live-cam/scripts/open_tv_channel_live_tile_fast.js \
+node .gemini/skills/vacuumtube-silent-live-cam/scripts/open_tv_channel_live_tile_fast.js \
   --cdp-port 9993 \
   --browse-url 'https://www.youtube.com/tv/@FNNnewsCH/streams#/browse?c=UCoQBJMzcwmXrRSHBFAlTsIw' \
   --keyword 'いまの渋谷' \
@@ -112,7 +112,7 @@ node .codex/skills/vacuumtube-silent-live-cam/scripts/open_tv_channel_live_tile_
 ### 新宿（TBS NEWS DIG）
 
 ```bash
-node .codex/skills/vacuumtube-silent-live-cam/scripts/open_tv_channel_live_tile_fast.js \
+node .gemini/skills/vacuumtube-silent-live-cam/scripts/open_tv_channel_live_tile_fast.js \
   --cdp-port 9994 \
   --browse-url 'https://www.youtube.com/tv/@tbsnewsdig/streams#/browse?c=UC6AG81pAkf6Lbi_1VC5NmPA' \
   --keyword '新宿駅前のライブカメラ' \
@@ -122,7 +122,7 @@ node .codex/skills/vacuumtube-silent-live-cam/scripts/open_tv_channel_live_tile_
 ### 池袋（サンシャイン60通り）
 
 ```bash
-node .codex/skills/vacuumtube-silent-live-cam/scripts/open_tv_channel_live_tile_fast.js \
+node .gemini/skills/vacuumtube-silent-live-cam/scripts/open_tv_channel_live_tile_fast.js \
   --cdp-port 9995 \
   --browse-url 'https://www.youtube.com/tv/@%E3%82%B5%E3%83%B3%E3%82%B7%E3%83%A3%E3%82%A4%E3%83%B360%E9%80%9A%E3%82%8A%E3%83%A9%E3%82%A4%E3%83%96%E3%82%AB%E3%83%A1%E3%83%A9/streams#/browse?c=UCEloGRn_GCcr-I_6f5MYJPw' \
   --keyword 'サンシャイン60通りライブカメラ' \
@@ -132,7 +132,7 @@ node .codex/skills/vacuumtube-silent-live-cam/scripts/open_tv_channel_live_tile_
 ### 秋葉原（Cerevo）
 
 ```bash
-node .codex/skills/vacuumtube-silent-live-cam/scripts/open_tv_channel_live_tile_fast.js \
+node .gemini/skills/vacuumtube-silent-live-cam/scripts/open_tv_channel_live_tile_fast.js \
   --cdp-port 9996 \
   --browse-url 'https://www.youtube.com/tv/@Cerevolivecamera/streams#/browse?c=UCrGS8VyrgCqYwaogH5bQpxQ' \
   --keyword '秋葉原ライブカメラ' \
@@ -143,25 +143,24 @@ node .codex/skills/vacuumtube-silent-live-cam/scripts/open_tv_channel_live_tile_
 
 ### レイアウトの考え方
 
-- 画面全体: `SCREEN_W x SCREEN_H` (4096 x 2160)
-- タスクバー高さを引いた有効領域: `4096 x 2116`
-- 右下領域の左上:
-  - `baseX = 2048`
-  - `baseY = 1058`
+- 画面全体: `SCREEN_W x SCREEN_H`
+- 右下 FHD 領域の左上:
+  - `baseX = SCREEN_W - 1920`
+  - `baseY = SCREEN_H - 1080`
 - 4分割セルサイズ:
-  - `cellW = 1024`
-  - `cellH = 529`
+  - `cellW = 960`
+  - `cellH = 540`
 
 配置先（frame geometry）:
 
-- 左上: `(baseX, baseY, 1024, 529)`
-- 右上: `(baseX+1024, baseY, 1024, 529)`
-- 左下: `(baseX, baseY+529, 1024, 529)`
-- 右下: `(baseX+1024, baseY+529, 1024, 529)`
+- 左上: `(baseX, baseY, 960, 540)`
+- 右上: `(baseX+960, baseY, 960, 540)`
+- 左下: `(baseX, baseY+540, 960, 540)`
+- 右下: `(baseX+960, baseY+540, 960, 540)`
 
-実測例（DCI 4K `4096x2160` - Taskbar 44px）:
+実測例（DCI 4K `4096x2160`）:
 
-- `baseX=2048`, `baseY=1058`
+- `baseX=2176`, `baseY=1080`
 
 ### KWin Scripting による確実配置（推奨）
 
@@ -178,10 +177,10 @@ PID_9995=$(lsof -nP -iTCP:9995 -sTCP:LISTEN -t | head -n1)
 PID_9996=$(lsof -nP -iTCP:9996 -sTCP:LISTEN -t | head -n1)
 
 cat > /tmp/codex_kwin_layout_4cams.js <<EOF
-var baseX = 2048;
-var baseY = 1058;
-var cellW = 1024;
-var cellH = 529;
+var baseX = 2176;
+var baseY = 1080;
+var cellW = 960;
+var cellH = 540;
 var targets = [
   { pid: $PID_9993, x: baseX,         y: baseY,         w: cellW, h: cellH }, // Shibuya
   { pid: $PID_9994, x: baseX + cellW, y: baseY,         w: cellW, h: cellH }, // Shinjuku
@@ -244,12 +243,14 @@ pactl get-sink-mute vacuumtube_silent
 - 各ポートが目的の `#/watch?v=...` にいる
 - `vacuumtube_silent` は `Mute: yes`
 
-## 既知の東京4地点プリセット（実績）
+## 既知の東京4地点プリセット（現行デフォルト）
 
-- `:9993` 渋谷 / FNN / `dfVK7ld38Ys`
-- `:9994` 新宿 / TBS NEWS DIG / `glJu8snzi78`
+- `:9993` 渋谷 / FNN / `GN9jUOILYYI`
+- `:9994` 秋葉原 / Cerevo / `Zq-D5z2n0EY`
 - `:9995` 池袋 / サンシャイン60通り / `TiDOEJxGtJI`
-- `:9996` 秋葉原 / Cerevo / `Zq-D5z2n0EY`
+- `:9996` 浅草 / TBS NEWS DIG / `urE7veQRlrQ`
+  - fallback: 三ノ輪 / `MZEvlESu6I0`
+  - fallback: 横浜みなとみらい
 
 ## トラブルシュート
 
@@ -276,7 +277,7 @@ pactl get-sink-mute vacuumtube_silent
 ## 手動確認（必須）
 
 - 4台が右下 FHD 領域に `2x2` で収まっているか
-- 各ウィンドウが意図した地域（渋谷/新宿/池袋/秋葉原）になっているか
+- 各ウィンドウが意図した地域（渋谷/秋葉原/池袋/浅草）になっているか
 - 音が出ていないか（`vacuumtube_silent`）
 
 ## 関連スキル
@@ -284,4 +285,3 @@ pactl get-sink-mute vacuumtube_silent
 - `vacuumtube-silent-live-cam`（無音複数起動と TV ライブタイル選択の基盤）
 - `desktop-windows-layout`（X11/KDE のウィンドウ配置・確認）
 - `system-reboot-bringup`（再起動後の常駐群復旧）
-
