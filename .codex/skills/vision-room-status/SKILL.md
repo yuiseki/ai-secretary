@@ -1,18 +1,18 @@
 ---
 name: vision-room-status
-description: GOD MODE ウィンドウをキャプチャし、Ollama Vision で部屋の状態（照明、配置、映り込み）を説明する。室内状況の視覚確認や監視画面デバッグ時に使う。
+description: ASEE Viewer ウィンドウをキャプチャし、Ollama Vision で部屋の状態（照明、配置、映り込み）を説明する。室内状況の視覚確認や監視画面デバッグ時に使う。
 ---
 
 # vision-room-status
 
 ## 用途
 - 部屋の現在の様子を視覚的に把握する。
-- GOD MODE が意図どおり表示されているかを確認する。
+- ASEE Viewer が意図どおり表示されているかを確認する。
 
 ## 実行手順
-1. GOD MODE のウィンドウ ID を取得する。
+1. ASEE Viewer のウィンドウ ID を取得する。
 ```bash
-WIN_ID="$(DISPLAY=:0 wmctrl -l | awk '/GOD MODE/{print $1; exit}')"
+WIN_ID="$(DISPLAY=:0 wmctrl -l | awk '/ASEE Viewer/{print $1; exit}')"
 ```
 
 2. そのウィンドウを撮影する。
@@ -28,5 +28,5 @@ DISPLAY=:0 import -window "$WIN_ID" /tmp/vision_room.png
 ```
 
 ## 補足
-- `WIN_ID` が空の場合は GOD MODE ウィンドウが存在しない。先に GOD MODE を起動する。
+- `WIN_ID` が空の場合は ASEE Viewer ウィンドウが存在しない。先に `repos/asee/tmp_main.sh` で起動する。
 - 既定モデルは `qwen3.5:4b`。

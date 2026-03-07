@@ -172,8 +172,8 @@ var clients = workspace.clientList();
 for (var i = 0; i < clients.length; i++) {
     var c = clients[i];
     
-    // 例: "GOD MODE" を左下に配置
-    if (c.caption.indexOf("GOD MODE") !== -1) {
+    // 例: "ASEE Viewer" を左下に配置
+    if (c.caption.indexOf("ASEE Viewer") !== -1) {
         c.fullScreen = false;
         c.noBorder = true;    // 枠を消して隙間を無くす
         c.keepAbove = true;   // 常に最前面
