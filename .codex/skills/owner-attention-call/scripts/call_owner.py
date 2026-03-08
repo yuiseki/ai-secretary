@@ -89,6 +89,12 @@ def build_speaker(
     return speaker
 
 
+def speak_via_asay(speaker: VoiceVoxSpeaker, message: str) -> None:
+    if not speaker.enabled:
+        raise RuntimeError("VOICEVOX is not ready")
+    speaker.speak(message, wait=False)
+
+
 def route_attention(
     *,
     message: str,
@@ -163,9 +169,7 @@ def main() -> int:
     )
 
     def _speak(text: str) -> None:
-        if not speaker.enabled:
-            raise RuntimeError("VOICEVOX is not ready")
-        speaker.speak(text, wait=True)
+        speak_via_asay(speaker, text)
 
     def _notify(text: str) -> None:
         if not args.ntfy_topic:

@@ -86,3 +86,17 @@ def test_owner_visible_falls_back_to_owner_count_when_flag_missing() -> None:
 def test_owner_visible_is_false_for_invalid_payload() -> None:
     assert call_owner.owner_visible(None) is False
     assert call_owner.owner_visible({"ownerPresent": ""}) is False
+
+
+def test_speak_via_asay_uses_nonblocking_overlay_path() -> None:
+    calls: list[tuple[str, bool]] = []
+
+    class _Speaker:
+        enabled = True
+
+        def speak(self, text: str, *, wait: bool = False) -> None:
+            calls.append((text, wait))
+
+    call_owner.speak_via_asay(_Speaker(), "ユイさま、動作確認のお願いがあります")
+
+    assert calls == [("ユイさま、動作確認のお願いがあります", False)]
