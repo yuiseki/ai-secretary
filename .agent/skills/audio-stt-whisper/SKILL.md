@@ -288,6 +288,15 @@ tmp/whispercpp-listen/tmux_listen_only.sh restart-agent
 - 期待した文字起こし/コマンド実行ができたか
 - UX の手動確認結果（聞こえた・動いた・遅い等）
 
+手動確認をお願いする前に `ASEE` が見えているなら、まず `owner-attention-call` を使う。
+
+```bash
+python3 /home/yuiseki/Workspaces/.codex/skills/owner-attention-call/scripts/call_owner.py \
+  --message "ユイさま、音声待ち受けの動作確認をお願いします"
+```
+
+`ownerPresent=true` なら音声で呼びかけ、見えていない場合だけ `ntfy` を使う。
+
 ## ローカル参照
 
 - 管理スクリプト: `tmp/whispercpp-listen/tmux_listen_only.sh`

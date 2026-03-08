@@ -279,6 +279,15 @@ echo '{"type":"notify","text":"bringup OK"}' | nc -q1 127.0.0.1 47832
 2. 字幕オーバーレイ + VOICEVOX 応答が出ることを確認
 3. `YouTubeを小さくして` など簡単なコマンドを試す
 
+手動確認をお願いするときは、`ASEE` が見えていれば先に `owner-attention-call` を使う。
+
+```bash
+python3 /home/yuiseki/Workspaces/.codex/skills/owner-attention-call/scripts/call_owner.py \
+  --message "ユイさま、復旧後の動作確認をお願いします"
+```
+
+`mode=speech` なら音声で呼びかけ済み。`mode=ntfy` のときだけ追加で `ntfy` を使う。
+
 ## トラブルシュート（再起動直後に多いもの）
 
 ### 1) `whisper-agent` は動いているのに喋らない
@@ -318,4 +327,5 @@ echo '{"type":"notify","text":"bringup OK"}' | nc -q1 127.0.0.1 47832
 - `vacuumtube`（VacuumTube の CDP 操作）
 - `audio-stt-whisper`（whisper-agent 運用）
 - `audio-speak-voicebox`（VOICEVOX + 字幕オーバーレイ）
+- `owner-attention-call`（ASEE を見て音声呼びかけ / ntfy を自動切替）
 - `desktop-windows-layout`（VacuumTube の右上配置など）
