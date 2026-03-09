@@ -25,6 +25,7 @@ These rules apply only to this repository (`/home/yuiseki/Workspaces`) and its s
 - amem を最大限活用する
   - amem はコーディングAIエージェントが長期間・長時間に渡って自律的かつ継続的に作業をするための重要なツール
   - 自分の作業・活動の進捗について amem を使って適切に記録しておくこと
+  - **ユーザーにタスクの完了を報告する場合には必ず amem を使うこと**
   
 ## Ongoing Logging
 
