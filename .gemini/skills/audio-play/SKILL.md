@@ -1,11 +1,11 @@
 ---
 name: audio-play
-description: "KDE Plasma / PipeWire(PulseAudio互換) 環境で通知音・効果音・テストトーン・VOICEVOX発話（VOICEBOX表記含む）を確実に再生する。現在は Tauri 字幕オーバーレイPoC (IPC) を使った字幕付き再生/通知を主経路とし、paplay/notify-send をフォールバックとして扱う。"
+description: "KDE Plasma / PipeWire(PulseAudio互換) 環境で通知音・効果音・テストトーン・VOICEVOX発話（VOICEBOX表記含む）を確実に再生する。現在は repos/acaption の IPC を使った字幕付き再生/通知を主経路とし、paplay/notify-send をフォールバックとして扱う。"
 ---
 
 # audio-play Skill
 
-KDE Plasma デスクトップ上で音を再生するためのスキルです。現在は `tmp/tauri-caption-overlay-poc` の IPC (`127.0.0.1:47832`) を使った字幕付き再生/通知を主経路とし、`paplay` / `pw-play` / `canberra-gtk-play` / `notify-send` はフォールバック/切り分け用途として扱います。
+KDE Plasma デスクトップ上で音を再生するためのスキルです。現在は `repos/acaption` の IPC (`127.0.0.1:47832`) を使った字幕付き再生/通知を主経路とし、`paplay` / `pw-play` / `canberra-gtk-play` / `notify-send` はフォールバック/切り分け用途として扱います。
 
 この環境では「通知は出るが音が聞こえない」問題が起きやすいため、**音の出力先（sink）を明示して検証する**のが基本です。
 
@@ -25,7 +25,7 @@ KDE Plasma デスクトップ上で音を再生するためのスキルです。
 ## 重要ルール
 
 - まず **音の経路確認**を行う（`pactl info`, `pactl list short sinks`）
-- まず `Tauri` 字幕オーバーレイ IPC を使う（字幕と音声の同期を確保）
+- まず `acaption` IPC を使う（字幕と音声の同期を確保）
 - 重要な再生は `paplay --device=<sink>` で **sink を明示**する（フォールバック/切り分け）
 - `notify-send` 単体で「通知音が鳴る」と期待しない
   - 通知表示はできても、音は別コマンドが必要なことがある
@@ -48,9 +48,9 @@ KDE Plasma デスクトップ上で音を再生するためのスキルです。
 4. 必要に応じて `notify-send` と組み合わせる
 5. VOICEVOX 利用時は API 生存確認 → WAV 生成 → overlay IPC（失敗時 `paplay`）
 
-## Tauri 字幕オーバーレイ（主経路）
+## acaption 字幕オーバーレイ（主経路）
 
-字幕付きの通知/発話は `tmp/tauri-caption-overlay-poc` を使う。`voice_command_loop` 連携時は tmux スクリプトで管理される。
+字幕付きの通知/発話は `repos/acaption` を使う。`voice_command_loop` 連携時は `tmp/whispercpp-listen/tmux_listen_only.sh` が `acaption-overlay` セッションとして管理する。
 
 ```bash
 tmp/whispercpp-listen/tmux_listen_only.sh status
@@ -60,7 +60,7 @@ tmp/whispercpp-listen/tmux_listen_only.sh logs-overlay
 
 期待:
 
-- `overlay: RUNNING`
+- `overlay: RUNNING (acaption-overlay)`
 - `overlay endpoint ready: 127.0.0.1:47832`
 
 ### IPC でテキスト通知（字幕のみ）
@@ -260,7 +260,7 @@ paplay /usr/share/sounds/freedesktop/stereo/bell.oga
 ## ローカル参照（この環境で有用）
 
 - freedesktop 効果音: `/usr/share/sounds/freedesktop/stereo/`
-- 字幕オーバーレイ PoC: `tmp/tauri-caption-overlay-poc`
+- caption overlay: `repos/acaption`
 - 音声待ち受け tmux 管理: `tmp/whispercpp-listen/tmux_listen_only.sh`
 - 典型 sink（実測例）:
   - `alsa_output.pci-0000_04_00.1.hdmi-stereo`（HDMI / テレビ）
