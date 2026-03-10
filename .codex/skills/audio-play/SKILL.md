@@ -50,12 +50,12 @@ KDE Plasma デスクトップ上で音を再生するためのスキルです。
 
 ## acaption 字幕オーバーレイ（主経路）
 
-字幕付きの通知/発話は `repos/acaption` を使う。`voice_command_loop` 連携時は `tmp/whispercpp-listen/tmux_listen_only.sh` が `acaption-overlay` セッションとして管理する。
+字幕付きの通知/発話は `repos/acaption` を使う。`voice_command_loop` 連携時の overlay 管理は `yuiclaw voice-command operator` から行う。
 
 ```bash
-tmp/whispercpp-listen/tmux_listen_only.sh status
-tmp/whispercpp-listen/tmux_listen_only.sh start-overlay
-tmp/whispercpp-listen/tmux_listen_only.sh logs-overlay
+yuiclaw voice-command operator status
+yuiclaw voice-command operator start-overlay
+yuiclaw voice-command operator logs-overlay
 ```
 
 期待:

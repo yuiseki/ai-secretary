@@ -87,9 +87,9 @@ curl -fsS http://127.0.0.1:50021/version
 まず字幕オーバーレイが tmux 管理で起動していることを確認する。
 
 ```bash
-tmp/whispercpp-listen/tmux_listen_only.sh status
-tmp/whispercpp-listen/tmux_listen_only.sh start-overlay
-tmp/whispercpp-listen/tmux_listen_only.sh logs-overlay
+yuiclaw voice-command operator status
+yuiclaw voice-command operator start-overlay
+yuiclaw voice-command operator logs-overlay
 ```
 
 期待:
