@@ -235,7 +235,7 @@ paplay /usr/share/sounds/freedesktop/stereo/bell.oga
 - `notify-send` は表示されるが音が鳴らない
   - `notify-send` 単体を諦める。`paplay` / `canberra-gtk-play` を併用
 - overlay 字幕は出るが音が出ない
-  - `tmp/whispercpp-listen/tmux_listen_only.sh logs-overlay` を確認
+- `yuiclaw voice-command operator logs-overlay` を確認
   - `paplay --device=<sink>` で WAV を直接再生して切り分け
 - `canberra-gtk-play` が `Cannot open display`
   - `DISPLAY=:1` を付ける
@@ -261,7 +261,7 @@ paplay /usr/share/sounds/freedesktop/stereo/bell.oga
 
 - freedesktop 効果音: `/usr/share/sounds/freedesktop/stereo/`
 - caption overlay: `repos/acaption`
-- 音声待ち受け tmux 管理: `tmp/whispercpp-listen/tmux_listen_only.sh`
+- 音声待ち受け operator 管理: `yuiclaw voice-command operator ...`
 - 典型 sink（実測例）:
   - `alsa_output.pci-0000_04_00.1.hdmi-stereo`（HDMI / テレビ）
   - `alsa_output.pci-0000_0c_00.4.iec958-stereo`（S/PDIF）
