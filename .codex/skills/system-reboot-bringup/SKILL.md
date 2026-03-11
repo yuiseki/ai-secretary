@@ -90,7 +90,7 @@ curl -fsS http://127.0.0.1:9992/json/version
 
 ### 3) 字幕オーバーレイ + lock screen を起動（`acaption-overlay` / `asec-lock-screen`）
 
-字幕表示は `repos/acaption`、lock screen は `repos/asec` を使います。日常の起動責務は `yuiclaw voice-command operator ...` に寄せ、backend は当面 `tmp/whispercpp-listen/tmux_listen_only.sh` が担います。
+字幕表示は `repos/acaption`、lock screen は `repos/asec` を使います。日常の起動責務は `yuiclaw voice-command operator ...` に寄せ、backend は当面 `yuiclaw voice-command operator` が担います。
 
 ```bash
 yuiclaw voice-command operator start-overlay
@@ -180,7 +180,7 @@ yuiclaw voice-command operator logs-overlay
 - moonshine バックエンドは音声キャプチャに `ffmpeg`（`parec` 不要）を使用します
 - biometric lock は既定で有効です。無効化したいときだけ `WHISPER_AGENT_BIOMETRIC_LOCK=0` を付けます
 - `WHISPER_AGENT_SPEAKER_ID=1` で ECAPA-TDNN 声紋認証を有効化（お嬢様のみコマンド実行可能）
-  - マスターボイスプリント: `tmp/whispercpp-listen/tests/fixtures/master_voiceprint.npy`
+  - マスターボイスプリント: `repos/ahear/python/src/ahear/models/master_voiceprint.npy`
   - 閾値: `WHISPER_AGENT_SPEAKER_THRESHOLD`（既定 0.60、ライブマイク実測値 0.63〜0.78）
   - 認証失敗時: 「声紋認証に失敗しました。もう一度お試しください。」と返答してコマンドをブロック
   - マスター再生成: `cd tmp/whispercpp-listen && python3 prototype_speaker_id.py`

@@ -87,9 +87,9 @@ curl -fsS http://127.0.0.1:50021/version
 まず字幕オーバーレイが tmux 管理で起動していることを確認する。
 
 ```bash
-tmp/whispercpp-listen/tmux_listen_only.sh status
-tmp/whispercpp-listen/tmux_listen_only.sh start-overlay
-tmp/whispercpp-listen/tmux_listen_only.sh logs-overlay
+yuiclaw voice-command operator status
+yuiclaw voice-command operator start-overlay
+yuiclaw voice-command operator logs-overlay
 ```
 
 期待:
@@ -230,7 +230,7 @@ curl -fsS http://127.0.0.1:50021/speakers | jq '.[].name'
 
 1. `curl -fsS http://127.0.0.1:50021/version` で API 確認
 2. `pactl info | sed -n 's/^Default Sink: //p'` で sink 確認
-3. `tmp/whispercpp-listen/tmux_listen_only.sh logs-overlay` で IPC/再生ログ確認
+3. `yuiclaw voice-command operator logs-overlay` で IPC/再生ログ確認
 4. `paplay --device=<sink> /usr/share/sounds/freedesktop/stereo/bell.oga` で効果音確認
 5. それでも分からなければ 1kHz テストトーンで確認（`audio-play` スキル参照）
 6. VOICEVOX の `volumeScale` を `2.5` に上げて再試行
@@ -248,5 +248,5 @@ curl -fsS http://127.0.0.1:50021/speakers | jq '.[].name'
 - 汎用音再生スキル: `.codex/skills/audio-play/SKILL.md`
 - VOICEVOX API: `http://127.0.0.1:50021`
 - caption overlay: `repos/acaption`
-- 音声待ち受け tmux 管理: `tmp/whispercpp-listen/tmux_listen_only.sh`
+- 音声待ち受け tmux 管理: `yuiclaw voice-command operator`
 - 典型 HDMI sink: `alsa_output.pci-0000_04_00.1.hdmi-stereo`
