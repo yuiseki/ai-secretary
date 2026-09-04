@@ -10,12 +10,15 @@
 .env
 .cookie/
 .cookies/
+.secret/
+.secrets/
 
 private/
 reports/
 repos/
 tmp/
 Trash/
+nippo/
 
 node_modules/
 
