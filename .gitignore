@@ -26,3 +26,5 @@ nippo/
 node_modules/
 
 remotion-*
+
+__pycache__/

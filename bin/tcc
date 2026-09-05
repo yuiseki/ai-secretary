@@ -2,15 +2,21 @@
 
 from collections import Counter, defaultdict
 from pathlib import Path
+import json
 import shlex
 import subprocess
 import sys
 
-from claude_agent_sdk import list_sessions, rename_session
+from claude_agent_sdk import (
+    list_sessions,
+    project_key_for_directory,
+    rename_session,
+)
 
 
 WORKDIR = Path.home() / "Workspaces"
 STATE = WORKDIR / ".cc-state"
+PROJECTS = Path.home() / ".claude" / "projects"
 
 
 def die(message: str, code: int = 1):
@@ -188,6 +194,38 @@ def restore():
         ensure(name, by_name, attach=False)
 
 
+def session_path(session_id: str) -> Path:
+    return (
+        PROJECTS
+        / project_key_for_directory(str(WORKDIR))
+        / f"{session_id}.jsonl"
+    )
+
+
+def rename_agent_name(session_id: str, name: str):
+    # rename_session only writes custom-title, which is what
+    # list_sessions matches and what the terminal title shows.
+    # The prompt box reads a separate agent-name entry, so the
+    # display name only follows if we append one as well.
+    path = session_path(session_id)
+
+    if not path.exists():
+        die(f"session file not found: {path}")
+
+    with path.open("a") as f:
+        f.write(
+            json.dumps(
+                {
+                    "type": "agent-name",
+                    "agentName": name,
+                    "sessionId": session_id,
+                },
+                separators=(",", ":"),
+            )
+            + "\n"
+        )
+
+
 def rename(old: str, new: str):
     names = read_state()
 
@@ -228,6 +266,7 @@ def rename(old: str, new: str):
         new,
         directory=str(WORKDIR),
     )
+    rename_agent_name(session.session_id, new)
     print(f"claude:  {session.session_id} -> {new}")
 
     if tmux_exists(old):
