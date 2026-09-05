@@ -6,6 +6,7 @@
 .amem/
 
 .playwright-cli/
+__pycache__/
 
 .env
 .cc-state
