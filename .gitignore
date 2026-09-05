@@ -8,6 +8,8 @@
 .playwright-cli/
 
 .env
+.cc-state
+
 .cookie/
 .cookies/
 .secret/
