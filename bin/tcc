@@ -6,7 +6,7 @@ import shlex
 import subprocess
 import sys
 
-from claude_agent_sdk import list_sessions
+from claude_agent_sdk import list_sessions, rename_session
 
 
 WORKDIR = Path.home() / "Workspaces"
@@ -79,6 +79,20 @@ def group_sessions(sessions):
     return result
 
 
+def print_duplicates(name: str, matches):
+    print(
+        f"ERROR: duplicate Claude sessions: {name}",
+        file=sys.stderr,
+    )
+
+    for session in matches:
+        print(
+            f"  {session.session_id}"
+            f"  last_modified={session.last_modified}",
+            file=sys.stderr,
+        )
+
+
 def start_tmux(name: str, session=None):
     if session is None:
         print(f"new:     {name}")
@@ -114,18 +128,7 @@ def ensure(name: str, by_name, attach: bool):
     matches = by_name.get(name, [])
 
     if len(matches) > 1:
-        print(
-            f"ERROR: duplicate Claude sessions: {name}",
-            file=sys.stderr,
-        )
-
-        for session in matches:
-            print(
-                f"  {session.session_id}"
-                f"  last_modified={session.last_modified}",
-                file=sys.stderr,
-            )
-
+        print_duplicates(name, matches)
         raise SystemExit(1)
 
     if tmux_exists(name):
@@ -176,23 +179,66 @@ def restore():
         if len(matches) > 1:
             errors = True
 
-            print(
-                f"ERROR: duplicate Claude sessions: {name}",
-                file=sys.stderr,
-            )
-
-            for session in matches:
-                print(
-                    f"  {session.session_id}"
-                    f"  last_modified={session.last_modified}",
-                    file=sys.stderr,
-                )
+            print_duplicates(name, matches)
 
     if errors:
         raise SystemExit(1)
 
     for name in names:
         ensure(name, by_name, attach=False)
+
+
+def rename(old: str, new: str):
+    names = read_state()
+
+    # Preflight:
+    # refuse anything ambiguous before touching tmux,
+    # Claude, or .cc-state.
+    if old == new:
+        die(f"same name: {old}")
+
+    if old not in names:
+        die(f"not registered: {old}")
+
+    if new in names:
+        die(f"already registered: {new}")
+
+    if tmux_exists(new):
+        die(f"tmux session already exists: {new}")
+
+    sessions = get_sessions()
+    by_name = group_sessions(sessions)
+
+    if by_name.get(new):
+        die(f"Claude session already titled: {new}")
+
+    matches = by_name.get(old, [])
+
+    if len(matches) > 1:
+        print_duplicates(old, matches)
+        raise SystemExit(1)
+
+    if not matches:
+        die(f"no Claude session: {old}")
+
+    session = matches[0]
+
+    rename_session(
+        session.session_id,
+        new,
+        directory=str(WORKDIR),
+    )
+    print(f"claude:  {session.session_id} -> {new}")
+
+    if tmux_exists(old):
+        subprocess.run(
+            ["tmux", "rename-session", "-t", f"={old}", new],
+            check=True,
+        )
+        print(f"tmux:    {old} -> {new}")
+
+    write_state([new if n == old else n for n in names])
+    print(f"state:   {old} -> {new}")
 
 
 def describe(name: str, by_name) -> str:
@@ -236,6 +282,7 @@ def usage():
   {sys.argv[0]} --restore
   {sys.argv[0]} --list
   {sys.argv[0]} --rm NAME
+  {sys.argv[0]} --rename OLD NEW
 """,
         file=sys.stderr,
     )
@@ -250,6 +297,10 @@ def main():
 
     if len(args) == 1 and args[0] == "--restore":
         restore()
+        return
+
+    if len(args) == 3 and args[0] == "--rename":
+        rename(args[1], args[2])
         return
 
     if len(args) == 2 and args[0] == "--rm":
@@ -267,18 +318,7 @@ def main():
         matches = by_name.get(name, [])
 
         if len(matches) > 1:
-            print(
-                f"ERROR: duplicate Claude sessions: {name}",
-                file=sys.stderr,
-            )
-
-            for session in matches:
-                print(
-                    f"  {session.session_id}"
-                    f"  last_modified={session.last_modified}",
-                    file=sys.stderr,
-                )
-
+            print_duplicates(name, matches)
             raise SystemExit(1)
 
         register(name)
