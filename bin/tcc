@@ -18,6 +18,10 @@ WORKDIR = Path.home() / "Workspaces"
 STATE = WORKDIR / ".cc-state"
 PROJECTS = Path.home() / ".claude" / "projects"
 
+# "ls" is a subcommand, so it can never be a session name.
+LIST_COMMANDS = {"ls", "--list"}
+ALL_FLAGS = {"-a", "--a", "--all"}
+
 
 def die(message: str, code: int = 1):
     print(f"ERROR: {message}", file=sys.stderr)
@@ -241,6 +245,9 @@ def rename(old: str, new: str):
     if new in names:
         die(f"already registered: {new}")
 
+    if new in LIST_COMMANDS:
+        die(f"reserved name: {new}")
+
     if tmux_exists(new):
         die(f"tmux session already exists: {new}")
 
@@ -292,21 +299,33 @@ def describe(name: str, by_name) -> str:
     return "-"
 
 
-def list_names():
+def list_names(show_all: bool):
     names = read_state()
 
     if not names:
         print("no registered names")
         return
 
+    # tmux ls sorts by session name, so do the same here
+    # rather than exposing .cc-state's registration order.
+    rows = [
+        (name, "up" if tmux_exists(name) else "down")
+        for name in sorted(names)
+    ]
+
+    if not show_all:
+        rows = [row for row in rows if row[1] == "up"]
+
+    if not rows:
+        print("no running sessions (use --all to see down ones)")
+        return
+
     sessions = get_sessions()
     by_name = group_sessions(sessions)
 
-    width = max(len(name) for name in names)
+    width = max(len(name) for name, _ in rows)
 
-    for name in names:
-        tmux = "up" if tmux_exists(name) else "down"
-
+    for name, tmux in rows:
         print(
             f"{name.ljust(width)}"
             f"  {tmux.ljust(4)}"
@@ -319,7 +338,7 @@ def usage():
         f"""usage:
   {sys.argv[0]} NAME
   {sys.argv[0]} --restore
-  {sys.argv[0]} --list
+  {sys.argv[0]} ls [--all]
   {sys.argv[0]} --rm NAME
   {sys.argv[0]} --rename OLD NEW
 """,
@@ -330,9 +349,15 @@ def usage():
 def main():
     args = sys.argv[1:]
 
-    if len(args) == 1 and args[0] == "--list":
-        list_names()
-        return
+    if args and args[0] in LIST_COMMANDS:
+        rest = args[1:]
+
+        if all(arg in ALL_FLAGS for arg in rest):
+            list_names(show_all=bool(rest))
+            return
+
+        usage()
+        raise SystemExit(2)
 
     if len(args) == 1 and args[0] == "--restore":
         restore()
