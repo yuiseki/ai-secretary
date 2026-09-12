@@ -7,13 +7,6 @@ import shlex
 import subprocess
 import sys
 
-from claude_agent_sdk import (
-    list_sessions,
-    project_key_for_directory,
-    rename_session,
-)
-
-
 WORKDIR = Path.home() / "Workspaces"
 STATE = WORKDIR / ".cc-state"
 PROJECTS = Path.home() / ".claude" / "projects"
@@ -21,6 +14,7 @@ PROJECTS = Path.home() / ".claude" / "projects"
 # "ls" is a subcommand, so it can never be a session name.
 LIST_COMMANDS = {"ls", "--list"}
 ALL_FLAGS = {"-a", "--a", "--all"}
+DETAIL_FLAGS = {"-d", "--d", "--detail"}
 
 
 def die(message: str, code: int = 1):
@@ -76,6 +70,10 @@ def tmux_exists(name: str) -> bool:
 
 
 def get_sessions():
+    # Imported lazily: the SDK costs ~0.7s to import, which is most of
+    # the runtime of commands that never touch Claude state.
+    from claude_agent_sdk import list_sessions
+
     return list_sessions(directory=str(WORKDIR))
 
 
@@ -199,6 +197,8 @@ def restore():
 
 
 def session_path(session_id: str) -> Path:
+    from claude_agent_sdk import project_key_for_directory
+
     return (
         PROJECTS
         / project_key_for_directory(str(WORKDIR))
@@ -266,6 +266,8 @@ def rename(old: str, new: str):
     if not matches:
         die(f"no Claude session: {old}")
 
+    from claude_agent_sdk import rename_session
+
     session = matches[0]
 
     rename_session(
@@ -299,7 +301,7 @@ def describe(name: str, by_name) -> str:
     return "-"
 
 
-def list_names(show_all: bool):
+def list_names(show_all: bool, detail: bool):
     names = read_state()
 
     if not names:
@@ -320,17 +322,21 @@ def list_names(show_all: bool):
         print("no running sessions (use --all to see down ones)")
         return
 
-    sessions = get_sessions()
-    by_name = group_sessions(sessions)
+    # The session id only matters when you are about to act on it,
+    # so the default listing skips the lookup entirely.
+    by_name = group_sessions(get_sessions()) if detail else None
 
     width = max(len(name) for name, _ in rows)
 
     for name, tmux in rows:
-        print(
-            f"{name.ljust(width)}"
-            f"  {tmux.ljust(4)}"
-            f"  {describe(name, by_name)}"
-        )
+        if by_name is None:
+            print(f"{name.ljust(width)}  {tmux}")
+        else:
+            print(
+                f"{name.ljust(width)}"
+                f"  {tmux.ljust(4)}"
+                f"  {describe(name, by_name)}"
+            )
 
 
 def usage():
@@ -338,7 +344,7 @@ def usage():
         f"""usage:
   {sys.argv[0]} NAME
   {sys.argv[0]} --restore
-  {sys.argv[0]} ls [--all]
+  {sys.argv[0]} ls [--all] [--detail]
   {sys.argv[0]} --rm NAME
   {sys.argv[0]} --rename OLD NEW
 """,
@@ -352,8 +358,11 @@ def main():
     if args and args[0] in LIST_COMMANDS:
         rest = args[1:]
 
-        if all(arg in ALL_FLAGS for arg in rest):
-            list_names(show_all=bool(rest))
+        if all(arg in ALL_FLAGS | DETAIL_FLAGS for arg in rest):
+            list_names(
+                show_all=any(arg in ALL_FLAGS for arg in rest),
+                detail=any(arg in DETAIL_FLAGS for arg in rest),
+            )
             return
 
         usage()
