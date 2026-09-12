@@ -1,87 +1,128 @@
 ---
 name: gyazo
-description: Gyazo CLI を操作して過去のキャプチャ（画像、OCRテキスト、メタデータ）を検索・取得・同期する。ユーザーの視覚的な記憶やリサーチ内容を調査する際に使用する。
+description: Search, read and summarise a person's Gyazo captures from the command line with the `gyazo` CLI - screenshots and phone photos, their OCR text, the application or page they came from, and where they were taken. Use when asked what someone saw, captured, read, bought, visited or worked on, when a question needs evidence from their screen history, or when a Gyazo image ID, a gyazo.com URL or a collection needs to be read.
 ---
 
-# Gyazo CLI Skill Runbook
+# Gyazo CLI
 
-## 概要
-`gyazo` CLI ツールを使用して、Gyazo に保存されたキャプチャ画像を操作します。OCR テキストやウィンドウタイトルなどのメタデータを含めて取得・検索・時間軸での列挙が可能です。
+`gyazo` reads a Gyazo account: screenshots, phone photos, their OCR text, the
+application and page a capture came from, and the coordinates and address of a
+photo. It caches everything it reads under `~/.cache/gyazocli`, so repeated
+questions about the same period are answered locally.
 
-## 前提
-- 実行バイナリ: `gyazo`
-- 認証設定: `gyazo config set token <token>`（`~/.config/gyazo/credentials.json` に保存）。
-- キャッシュ: `~/.cache/gyazocli/` に画像詳細と時間軸インデックスが保存される。
+Check `gyazo config get me` first when a token might be missing; it prints the
+account or exits non-zero. Set one with `gyazo config set token <token>`.
 
-## 基本コマンド
+Every command exits non-zero on failure, so `&&` chains and `set -e` behave.
 
-### 1. 設定と認証確認
+## Reading captures
+
 ```bash
-gyazo config set token <token>
-gyazo config get me            # 現在のユーザー情報を取得（疎通確認）
+gyazo ls --limit 10                  # most recent, newest first
+gyazo ls --date 2026-08-30           # a local day; also yyyy-mm and yyyy
+gyazo ls --today
+gyazo ls --hour 2026-08-30-14        # one hour, from the cache only
+gyazo ls --photos                    # shorthand for has:location
+gyazo get <image_id>                 # one capture in detail
+gyazo get <image_id> --ocr           # just the OCR text
+gyazo <image_id>                     # same as get
+gyazo <https://gyazo.com/...>        # same as get
+gyazo ./screenshot.png               # an existing file uploads instead
 ```
 
-### 2. 画像の列挙
-直近の画像、または特定の属性（写真、アップロード済み）や時間帯を指定して列挙します。
+Add `-j`/`--json` to any of these when the output is going to be parsed rather
+than read. Add `--no-cache` when the answer must come from the API.
+
+## Searching
+
+`gyazo search <query>` takes Gyazo's own query language. The operators below
+were confirmed against the live API; see [references/search-syntax.md](references/search-syntax.md)
+for the measurements behind them and the ones that do not exist.
+
 ```bash
-gyazo ls --limit 10
-gyazo ls --hour 2026-01-01-10  # 2026年1月1日 10時台の画像をキャッシュから取得
-gyazo ls --photos              # 位置情報を持つ画像（写真）のみ
-gyazo ls --uploaded            # gyazocli からアップロードした画像のみ
+gyazo search "お好み焼"                        # OCR text, title and description
+gyazo search "has:exif"                        # photographs, not screenshots
+gyazo search "address:広島"                    # where a photo was taken
+gyazo search "date:2026-08-30"                 # a day, a month or a year
+gyazo search 'app:"Gyazo Android"'             # the application it came from
+gyazo search "ocr:Wi-Fi has:exif"              # terms are ANDed
+gyazo search "address:広島 OR address:京都"     # capital OR
+gyazo search "has:location -app:Chrome"        # leading - negates
 ```
 
-### 3. 検索
-Gyazo API の検索機能を使用します。デフォルトでキャッシュを使用しますが、`--no-cache` で強制的に最新化できます。
+Three things worth knowing before composing a query:
+
+- **An operator Gyazo does not know returns nothing**, rather than falling back
+  to a text search. A guessed operator looks exactly like "no such captures".
+- **`has:exif` is how to narrow to photographs.** The application does not tell
+  them apart: `app:"Gyazo Android"` includes screenshots and screen recordings
+  from the same phone.
+- **There is no coordinate or radius search.** Search by place with `address:`,
+  which matches the address in any language and matches postal codes too.
+
+## Summaries and rankings
+
 ```bash
-gyazo search "date:2026-02-19" --json
-gyazo search "検索ワード" --json
+gyazo summary                        # the week to yesterday, day by day
+gyazo summary --date 2026-08-30
+gyazo stats --days 30                # one markdown report
+gyazo apps --date 2026-08            # what applications, most used first
+gyazo domains --today
+gyazo tags --date 2026
+gyazo locations --date 2026-08-30
 ```
 
-### 4. 画像詳細の取得 (OCR/物体認識含む)
-特定の `image_id` の詳細情報を取得します。
+The ranking commands take `--date`, `--today`, `--limit`, `--max-pages`,
+`--json` and `--no-cache`. Only `stats` takes `--days`.
+
+## Collections
+
 ```bash
-gyazo get <image_id> --ocr --objects
+gyazo collection <collection_id>
+gyazo collection https://gyazo.com/collections/<id>
+gyazo collection <id> --sort captured   # added | created | captured
+gyazo collection <id> --anonymous       # read a public one without the token
 ```
 
-### 5. アップロード
+A collection ID and an image ID are both 32 hex characters and cannot be told
+apart on their own, which is why `gyazo <bare id>` reads it as an image. Pass
+the `/collections/<id>` URL when the ID is a collection.
+
+A collection larger than 100 images is reported as truncated: the public
+endpoint returns the first 100 and cannot page.
+
+## Filling the cache
+
 ```bash
-gyazo upload image.png --title "メモ" --desc "詳細説明"
+gyazo sync --days 7                  # yesterday back through 7 days
+gyazo sync --date 2026-08            # a whole month
 ```
 
-### 6. 使用状況の分析と統計
-特定の日付や期間における使用アプリ、ドメイン、タグ、位置情報の統計を取得します。
-デフォルトでは直近1週間のデータ（8日前〜昨日）が対象となります。
+`sync` covers yesterday backwards and never today, because today is still
+happening. For anything from today use `ls --today`, `search`, or a ranking
+command with `--today`.
 
-#### 項目別リスト
-```bash
-gyazo apps --today             # 今日のアプリ使用状況
-gyazo domains --date 2026-02   # 2月のドメイン統計
-gyazo tags --date 2026         # 2026年のタグ統計
-gyazo locations --days 30      # 直近30日間の位置情報統計
-```
+## Answering questions with captures
 
-#### 総合レポート (Stats)
-週間の Markdown サマリーを表示します。
-```bash
-gyazo stats                    # 直近1週間のサマリー
-gyazo stats --date 2026-02-20 --days 30  # 指定日から30日分遡ったサマリー
-```
+- A day is a local day. `--date 2026-08-30` means that date in this machine's
+  timezone, which is also how the cache is laid out.
+- Prefer `search` with an operator over `ls` plus filtering. The API does the
+  work, and `ls --date` over a wide range walks many pages.
+- OCR text is noisy: it comes from screenshots at whatever resolution, and
+  `locale` is often `und`. Treat it as a hint, not a transcript.
+- `get --objects` prints detected objects, but the API no longer returns the
+  field it reads, so it exits non-zero with "Object annotations not found" on
+  every capture tested. Use the OCR text instead.
+- **Do not turn a capture into a claim it does not support.** A product page or
+  a cart is interest; an order confirmation or a payment receipt is a purchase.
+  Say which capture the conclusion rests on.
+- A phone photo carries coordinates and a reverse-geocoded address in
+  `metadata.exif_normalized` and `metadata.exif_address` of the `--json`
+  output; the top-level `exif_normalized` is always null. Screenshots carry
+  neither.
 
-### 7. 同期とインポート
-```bash
-gyazo sync --days 7            # 指定日数分を同期
-gyazo sync --date 2026-01      # 特定の月をまるごと同期
-gyazo import json <path>       # 既存の JSON キャッシュを一括インポート
-gyazo import hourly <path>     # 既存の hourly インデックスを一括インポート
-```
+## Serving the same data over MCP
 
-## AI 秘書としての活用シナリオ
-- **時間軸での記憶探索:** 「元日の午前中に何してた？」に対し、`gyazo ls --hour 2026-01-01-09` 等を実行して視覚情報を得る。
-- **特定情報の深掘り:** 画像の OCR テキストから技術的なキーワードや商品名を抽出し、リサーチに役立てる。
-- **コンテキストの把握:** `stats` を確認し、ユーザーが最近どのようなツールやサイトを使っていたか、どこにいたかなどの活動傾向を把握する。
-
-## 運用ルール
-- 証拠に基づかない推測は行わない。特に「購入した」「契約した」といった断定は、注文完了画面や支払い完了画面のキャプチャが明確に存在する場合のみ行う。商品ページやカート画面のキャプチャだけでは「検討中」とみなす。
-- 今日の画像は `sync` の対象外（デフォルト）。最新の画像が必要な場合は `ls` や `search`、あるいは分析コマンドで `--today` を使用する。
-- キャッシュが古そうな場合は `--no-cache` オプションを検討する。
-- 設定が未完了の場合は `gyazo config set token` を案内する。
+`gyazo --mcp-server` runs the same functionality as a Model Context Protocol
+server over stdio, for a client that speaks MCP rather than shell. Everything
+above is the shell path.
