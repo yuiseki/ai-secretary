@@ -184,6 +184,12 @@ CODEX_READY = "Ask Codex to do anything"
 CODEX_RENAMED = "Session renamed to"
 CODEX_UPDATE_PROMPT = "Update available!"
 CODEX_UPDATE_SKIP = "2"
+# Shown after config.toml changes, because hooks run commands. Answering
+# it means trusting every hook in the file, including ones an agent may
+# have written, so amux only does so when told to.
+CODEX_TRUST_PROMPT = "Continue without trusting"
+CODEX_TRUST_ALL = "2"
+CODEX_TRUST_ENV = "AMUX_TRUST_HOOKS"
 CODEX_READY_TIMEOUT = 30
 
 
@@ -243,13 +249,25 @@ def send_keys(name: str, *keys: str, literal: bool = False):
     )
 
 
+def answer_prompt(name: str, key: str, marker: str):
+    # Some of codex's dialogs act on the digit alone and some want the
+    # Enter their footer asks for, so press it only if the dialog is
+    # still up. Sending Enter unconditionally would answer whatever
+    # dialog came next with its default.
+    send_keys(name, key, literal=True)
+    time.sleep(0.7)
+
+    if marker in capture_pane(name):
+        send_keys(name, "Enter")
+
+
 def after_start_codex(name: str, resumed: bool) -> bool:
     # Sending keys blind would type into whatever dialog codex happens to
     # be showing, and its update prompt defaults to running an install.
     # Wait for the composer, answering only that one prompt, and only
     # with Skip, which installs nothing.
     deadline = time.monotonic() + CODEX_READY_TIMEOUT
-    skipped = False
+    answered = set()
 
     while time.monotonic() < deadline:
         pane = capture_pane(name)
@@ -257,9 +275,21 @@ def after_start_codex(name: str, resumed: bool) -> bool:
         if CODEX_READY in pane:
             break
 
-        if CODEX_UPDATE_PROMPT in pane and not skipped:
-            send_keys(name, CODEX_UPDATE_SKIP, literal=True)
-            skipped = True
+        if CODEX_UPDATE_PROMPT in pane and "update" not in answered:
+            answer_prompt(name, CODEX_UPDATE_SKIP, CODEX_UPDATE_PROMPT)
+            answered.add("update")
+
+        if CODEX_TRUST_PROMPT in pane and "trust" not in answered:
+            if os.environ.get(CODEX_TRUST_ENV):
+                answer_prompt(name, CODEX_TRUST_ALL, CODEX_TRUST_PROMPT)
+                answered.add("trust")
+            else:
+                print(
+                    f"WARNING: {name}: codex is asking whether to trust its"
+                    f" hooks. Attach and answer it once, or set"
+                    f" {CODEX_TRUST_ENV}=1 to let amux answer it."
+                )
+                return False
 
         time.sleep(0.5)
     else:
