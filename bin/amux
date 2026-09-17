@@ -32,9 +32,11 @@ def die(message: str, code: int = 1):
     raise SystemExit(code)
 
 
-def read_state() -> list[tuple[str, str]]:
-    # Lines are "name<TAB>kind". A bare name predates the kind column
-    # and means claude, which is all this tool used to drive.
+def read_state() -> list[tuple[str, str, str]]:
+    # Lines are "name<TAB>kind<TAB>up|down". The third field is the last
+    # observed state, which is what --restore brings back; the second
+    # predates the third and the first predates both, from when this
+    # tool drove nothing but claude.
     if not STATE.exists():
         return []
 
@@ -44,29 +46,52 @@ def read_state() -> list[tuple[str, str]]:
         if not line.strip():
             continue
 
-        name, _, kind = line.strip().partition("\t")
-        kind = kind.strip() or DEFAULT_KIND
+        fields = line.strip().split("\t")
+        name = fields[0].strip()
+        kind = (fields[1].strip() if len(fields) > 1 else "") or DEFAULT_KIND
+        seen = (fields[2].strip() if len(fields) > 2 else "") or "up"
 
         if kind not in AGENTS:
             die(f"unknown agent kind in {STATE.name}: {name} -> {kind}")
 
-        entries.append((name.strip(), kind))
+        if seen not in ("up", "down"):
+            die(f"unknown recorded state in {STATE.name}: {name} -> {seen}")
+
+        entries.append((name, kind, seen))
 
     return entries
 
 
-def write_state(entries: list[tuple[str, str]]):
+def write_state(entries: list[tuple[str, str, str]]):
     STATE.write_text(
-        "".join(f"{name}\t{kind}\n" for name, kind in entries)
+        "".join(f"{name}\t{kind}\t{seen}\n" for name, kind, seen in entries)
     )
 
 
 def state_kind(entries, name: str) -> str | None:
-    for entry_name, kind in entries:
+    for entry_name, kind, _ in entries:
         if entry_name == name:
             return kind
 
     return None
+
+
+def record(entries, live) -> list[tuple[str, str, str]]:
+    # live is None when tmux has no server at all, which is not the same
+    # as every session being down: after a reboot it would otherwise
+    # overwrite the very record --restore exists to read back.
+    if live is None:
+        return entries
+
+    updated = [
+        (name, kind, "up" if name in live else "down")
+        for name, kind, _ in entries
+    ]
+
+    if updated != entries:
+        write_state(updated)
+
+    return updated
 
 
 def register(name: str, kind: str):
@@ -74,7 +99,7 @@ def register(name: str, kind: str):
     known = state_kind(entries, name)
 
     if known is None:
-        entries.append((name, kind))
+        entries.append((name, kind, "up"))
         write_state(entries)
         print(f"registered: {name} ({kind})")
         return
@@ -215,8 +240,9 @@ def paint(text: str, key: str, width: int = 0) -> str:
 SHELLS = {"bash", "zsh", "sh", "fish", "dash", "ksh"}
 
 
-def tmux_live() -> dict[str, bool]:
+def tmux_live() -> dict[str, bool] | None:
     # name -> whether an agent, rather than a bare shell, holds the pane.
+    # None means tmux itself is not running, so nothing was observed.
     result = subprocess.run(
         [
             "tmux",
@@ -229,7 +255,7 @@ def tmux_live() -> dict[str, bool]:
     )
 
     if result.returncode != 0:
-        return {}
+        return None
 
     live = {}
 
@@ -362,9 +388,9 @@ def ensure(name: str, kind: str, by_name, attach: bool):
         )
 
 
-def restore():
-    entries = read_state()
-    names = [name for name, _ in entries]
+def restore(show_all: bool = False):
+    entries = record(read_state(), tmux_live())
+    names = [name for name, _, _ in entries]
 
     duplicates = [
         name
@@ -382,8 +408,22 @@ def restore():
 
         raise SystemExit(1)
 
+    # Only what was up when amux last looked. A name that is recorded
+    # down was not running then, so bringing it back would be inventing
+    # a state rather than restoring one.
+    wanted = [
+        (name, kind)
+        for name, kind, seen in entries
+        if show_all or seen == "up"
+    ]
+
+    skipped = len(entries) - len(wanted)
+
+    if skipped:
+        print(f"skipped: {skipped} recorded down (--all to start them)")
+
     resumable = [
-        name for name, kind in entries if AGENTS[kind]["resumable"]
+        name for name, kind in wanted if AGENTS[kind]["resumable"]
     ]
 
     by_name = group_sessions(get_sessions()) if resumable else {}
@@ -403,7 +443,7 @@ def restore():
     if errors:
         raise SystemExit(1)
 
-    for name, kind in entries:
+    for name, kind in wanted:
         ensure(name, kind, by_name, attach=False)
 
 
@@ -443,7 +483,7 @@ def rename_agent_name(session_id: str, name: str):
 
 def rename(old: str, new: str):
     entries = read_state()
-    names = [name for name, _ in entries]
+    names = [name for name, _, _ in entries]
 
     # Preflight:
     # refuse anything ambiguous before touching tmux,
@@ -506,8 +546,8 @@ def rename(old: str, new: str):
         print(f"tmux:    {old} -> {new}")
 
     write_state([
-        (new if name == old else name, entry_kind)
-        for name, entry_kind in entries
+        (new if name == old else name, entry_kind, seen)
+        for name, entry_kind, seen in entries
     ])
     print(f"state:   {old} -> {new}")
 
@@ -533,26 +573,29 @@ def list_names(show_all: bool, detail: bool):
 
     # tmux ls sorts by session name, so do the same here
     # rather than exposing the state file's registration order.
-    entries = sorted(entries)
-
     live = tmux_live()
+
+    # Listing is also the observation --restore reads back later.
+    entries = sorted(record(entries, live))
+
+    seen = live or {}
     running = tmux_running(
-        [(name, kind) for name, kind in entries if live.get(name)]
+        [(name, kind) for name, kind, _ in entries if seen.get(name)]
     )
 
     def columns(name: str) -> tuple[str, str]:
         # tmux column: does the session exist at all.
         # agent column: what the CLI inside it is doing.
-        if name not in live:
+        if name not in seen:
             return "down", "-"
 
-        if not live[name]:
+        if not seen[name]:
             # tmux session outlived the agent that was running in it.
             return "up", "dead"
 
         return "up", "run" if running.get(name) else "idle"
 
-    rows = [(name, kind, *columns(name)) for name, kind in entries]
+    rows = [(name, kind, *columns(name)) for name, kind, _ in entries]
 
     if not show_all:
         rows = [row for row in rows if row[2] != "down"]
@@ -611,7 +654,7 @@ def usage():
     print(
         f"""usage:
   {sys.argv[0]} NAME [--claude|--codex|--gemini]
-  {sys.argv[0]} --restore
+  {sys.argv[0]} --restore [--all]
   {sys.argv[0]} ls [--all] [--detail] [--color|--no-color]
   {sys.argv[0]} watch [--all] [--detail]
   {sys.argv[0]} --rm NAME
@@ -662,9 +705,15 @@ def main():
         usage()
         raise SystemExit(2)
 
-    if len(args) == 1 and args[0] == "--restore":
-        restore()
-        return
+    if args and args[0] == "--restore":
+        rest = args[1:]
+
+        if all(arg in ALL_FLAGS for arg in rest):
+            restore(show_all=bool(rest))
+            return
+
+        usage()
+        raise SystemExit(2)
 
     if len(args) == 3 and args[0] == "--rename":
         rename(args[1], args[2])
