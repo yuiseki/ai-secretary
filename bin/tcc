@@ -3,6 +3,7 @@
 from collections import Counter, defaultdict
 from pathlib import Path
 import json
+import os
 import shlex
 import subprocess
 import sys
@@ -75,6 +76,36 @@ def tmux_exists(name: str) -> bool:
 # tail reports "generating" for sessions that are plainly idle.
 RUNNING_MARKER = "esc to interrupt"
 CAPTURE_SEP = "<<<tcc-pane-sep>>>"
+
+RESET = "\033[0m"
+COLORS = {
+    "up": "\033[32m",
+    "down": "\033[90m",
+    "run": "\033[1;33m",
+    "idle": "\033[36m",
+    "dead": "\033[1;31m",
+    "-": "\033[90m",
+    "dim": "\033[90m",
+    "warn": "\033[1;31m",
+}
+
+
+COLOR = False
+
+
+def color_enabled() -> bool:
+    # Piping tcc ls into grep should not have to strip escapes, and
+    # NO_COLOR is the conventional opt-out.
+    return sys.stdout.isatty() and not os.environ.get("NO_COLOR")
+
+
+def paint(text: str, key: str, width: int = 0) -> str:
+    padded = text.ljust(width)
+
+    if not COLOR or key is None or key not in COLORS:
+        return padded
+
+    return f"{COLORS[key]}{padded}{RESET}"
 
 
 def tmux_live() -> dict[str, bool]:
@@ -385,17 +416,19 @@ def list_names(show_all: bool, detail: bool):
         [name for name in names if live.get(name)]
     )
 
-    def status(name: str) -> str:
+    def columns(name: str) -> tuple[str, str]:
+        # tmux column: does the session exist at all.
+        # claude column: what the agent inside it is doing.
         if name not in live:
-            return "down"
+            return "down", "-"
 
         if not live[name]:
             # tmux session outlived the Claude process in it.
-            return "dead"
+            return "up", "dead"
 
-        return "run" if running.get(name) else "idle"
+        return "up", "run" if running.get(name) else "idle"
 
-    rows = [(name, status(name)) for name in names]
+    rows = [(name, *columns(name)) for name in names]
 
     if not show_all:
         rows = [row for row in rows if row[1] != "down"]
@@ -408,17 +441,25 @@ def list_names(show_all: bool, detail: bool):
     # so the default listing skips the lookup entirely.
     by_name = group_sessions(get_sessions()) if detail else None
 
-    width = max(len(name) for name, _ in rows)
+    width = max(len(name) for name, _, _ in rows)
 
-    for name, state in rows:
-        if by_name is None:
-            print(f"{name.ljust(width)}  {state}")
-        else:
-            print(
-                f"{name.ljust(width)}"
-                f"  {state.ljust(4)}"
-                f"  {describe(name, by_name)}"
-            )
+    for name, tmux, state in rows:
+        cells = [(name, None), (tmux, tmux), (state, state)]
+
+        if by_name is not None:
+            described = describe(name, by_name)
+            cells.append((
+                described,
+                "warn" if described.startswith("duplicate") else "dim",
+            ))
+
+        widths = [width, 4, 4, 0]
+
+        print("  ".join(
+            # The last cell is not padded, so nothing trails the line.
+            paint(text, key, 0 if index == len(cells) - 1 else widths[index])
+            for index, (text, key) in enumerate(cells)
+        ))
 
 
 def usage():
@@ -435,6 +476,10 @@ def usage():
 
 
 def main():
+    global COLOR
+
+    COLOR = color_enabled()
+
     args = sys.argv[1:]
 
     if args and args[0] in LIST_COMMANDS:
