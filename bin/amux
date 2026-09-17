@@ -729,7 +729,7 @@ def watch(rest: list[str]):
 def usage():
     print(
         f"""usage:
-  {sys.argv[0]} NAME [--claude|--codex|--gemini]
+  {sys.argv[0]} [--claude|--codex|--gemini] NAME
   {sys.argv[0]} sync [--yes]
   {sys.argv[0]} stop NAME
   {sys.argv[0]} --restore [--all]
@@ -815,20 +815,24 @@ def main():
         remove(args[1])
         return
 
-    if args and not args[0].startswith("-"):
-        name = args[0]
-        rest = args[1:]
+    # "amux NAME --codex" and "amux --codex NAME" are the same request,
+    # so the flag is read from wherever it lands.
+    flags = [arg for arg in args if arg.startswith("-")]
+    names = [arg for arg in args if not arg.startswith("-")]
 
-        if not all(arg in KIND_FLAGS for arg in rest):
-            usage()
-            raise SystemExit(2)
+    if len(names) == 1 and all(flag in KIND_FLAGS for flag in flags):
+        name = names[0]
+        asked = {KIND_FLAGS[flag] for flag in flags}
+
+        if len(asked) > 1:
+            die(f"conflicting agent flags: {' '.join(sorted(asked))}")
 
         # An already registered name keeps its kind, so attaching to it
         # never needs the flag repeated.
         kind = state_kind(read_state(), name)
 
-        if rest:
-            kind = KIND_FLAGS[rest[-1]]
+        if asked:
+            kind = asked.pop()
         elif kind is None:
             kind = DEFAULT_KIND
 
