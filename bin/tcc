@@ -12,12 +12,18 @@ WORKDIR = Path.home() / "Workspaces"
 STATE = WORKDIR / ".cc-state"
 PROJECTS = Path.home() / ".claude" / "projects"
 
-# "ls" is a subcommand, so it can never be a session name.
+# Subcommands are matched before the NAME branch, so they can never be
+# session names.
 LIST_COMMANDS = {"ls", "--list"}
+WATCH_COMMANDS = {"watch"}
+RESERVED = LIST_COMMANDS | WATCH_COMMANDS
+
 ALL_FLAGS = {"-a", "--a", "--all"}
 DETAIL_FLAGS = {"-d", "--d", "--detail"}
 COLOR_FLAGS = {"-c", "--c", "--color", "--colour"}
 NO_COLOR_FLAGS = {"--no-color", "--no-colour"}
+
+WATCH_INTERVAL = "1"
 
 
 def die(message: str, code: int = 1):
@@ -358,7 +364,7 @@ def rename(old: str, new: str):
     if new in names:
         die(f"already registered: {new}")
 
-    if new in LIST_COMMANDS:
+    if new in RESERVED:
         die(f"reserved name: {new}")
 
     if tmux_exists(new):
@@ -476,12 +482,28 @@ def list_names(show_all: bool, detail: bool):
         ))
 
 
+def watch(rest: list[str]):
+    # watch joins its trailing arguments and hands them to a shell, so
+    # the path is quoted rather than trusted to be free of spaces.
+    command = " ".join(
+        shlex.quote(part)
+        for part in [str(Path(__file__).resolve()), "ls", "--color", *rest]
+    )
+
+    # exec, so ctrl-c reaches watch itself and not a wrapper around it.
+    os.execvp(
+        "watch",
+        ["watch", "-c", "-n", WATCH_INTERVAL, "-t", command],
+    )
+
+
 def usage():
     print(
         f"""usage:
   {sys.argv[0]} NAME
   {sys.argv[0]} --restore
   {sys.argv[0]} ls [--all] [--detail] [--color|--no-color]
+  {sys.argv[0]} watch [--all] [--detail]
   {sys.argv[0]} --rm NAME
   {sys.argv[0]} --rename OLD NEW
 """,
@@ -495,6 +517,16 @@ def main():
     COLOR = color_enabled()
 
     args = sys.argv[1:]
+
+    if args and args[0] in WATCH_COMMANDS:
+        rest = args[1:]
+
+        if all(arg in ALL_FLAGS | DETAIL_FLAGS for arg in rest):
+            watch(rest)
+            return
+
+        usage()
+        raise SystemExit(2)
 
     if args and args[0] in LIST_COMMANDS:
         rest = args[1:]
