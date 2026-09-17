@@ -1,3 +1,8 @@
+---
+name: manage-claude
+description: Manage and monitor the Claude Code agent running in the a-claude tmux session.
+---
+
 # manage-claude Skill
 
 `tmux` セッション `a-claude` で稼働している Claude Code エージェントを管理・操作するためのスキルです。

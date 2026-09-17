@@ -1,3 +1,8 @@
+---
+name: weather-calendar
+description: Record weather information for a specified location in the Google Calendar weather log.
+---
+
 # 天気カレンダー記録スキル
 
 指定した場所の天気を取得し、Google Calendar の「1 天気ログ」カレンダーに記録する手順。

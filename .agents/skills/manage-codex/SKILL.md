@@ -1,3 +1,8 @@
+---
+name: manage-codex
+description: Manage and monitor the Codex agent running in the a-codex tmux session.
+---
+
 # manage-codex Skill
 
 `tmux` セッション `a-codex` で稼働している Codex エージェントを管理・操作するためのスキルです。
