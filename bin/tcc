@@ -16,6 +16,8 @@ PROJECTS = Path.home() / ".claude" / "projects"
 LIST_COMMANDS = {"ls", "--list"}
 ALL_FLAGS = {"-a", "--a", "--all"}
 DETAIL_FLAGS = {"-d", "--d", "--detail"}
+COLOR_FLAGS = {"-c", "--c", "--color", "--colour"}
+NO_COLOR_FLAGS = {"--no-color", "--no-colour"}
 
 
 def die(message: str, code: int = 1):
@@ -93,10 +95,22 @@ COLORS = {
 COLOR = False
 
 
-def color_enabled() -> bool:
-    # Piping tcc ls into grep should not have to strip escapes, and
-    # NO_COLOR is the conventional opt-out.
-    return sys.stdout.isatty() and not os.environ.get("NO_COLOR")
+def color_enabled(force: bool | None = None) -> bool:
+    # watch runs its command through a shell, so stdout is a pipe and
+    # the tty test alone would drop colour under "watch -c tcc ls".
+    # --color says yes anyway; FORCE_COLOR/CLICOLOR_FORCE do the same
+    # for commands that cannot take a flag.
+    if force is not None:
+        return force
+
+    if os.environ.get("NO_COLOR"):
+        return False
+
+    if os.environ.get("FORCE_COLOR") or os.environ.get("CLICOLOR_FORCE"):
+        return True
+
+    # Piping tcc ls into grep should not have to strip escapes.
+    return sys.stdout.isatty()
 
 
 def paint(text: str, key: str, width: int = 0) -> str:
@@ -467,7 +481,7 @@ def usage():
         f"""usage:
   {sys.argv[0]} NAME
   {sys.argv[0]} --restore
-  {sys.argv[0]} ls [--all] [--detail]
+  {sys.argv[0]} ls [--all] [--detail] [--color|--no-color]
   {sys.argv[0]} --rm NAME
   {sys.argv[0]} --rename OLD NEW
 """,
@@ -484,8 +498,19 @@ def main():
 
     if args and args[0] in LIST_COMMANDS:
         rest = args[1:]
+        known = ALL_FLAGS | DETAIL_FLAGS | COLOR_FLAGS | NO_COLOR_FLAGS
 
-        if all(arg in ALL_FLAGS | DETAIL_FLAGS for arg in rest):
+        if all(arg in known for arg in rest):
+            force = None
+
+            if any(arg in COLOR_FLAGS for arg in rest):
+                force = True
+
+            if any(arg in NO_COLOR_FLAGS for arg in rest):
+                force = False
+
+            COLOR = color_enabled(force)
+
             list_names(
                 show_all=any(arg in ALL_FLAGS for arg in rest),
                 detail=any(arg in DETAIL_FLAGS for arg in rest),
