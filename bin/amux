@@ -2,12 +2,15 @@
 
 from collections import Counter, defaultdict
 from pathlib import Path
+import glob
 import json
 import os
 import re
 import shlex
 import subprocess
 import sys
+import time
+import uuid
 
 WORKDIR = Path.home() / "Workspaces"
 STATE = WORKDIR / ".cc-state"
@@ -130,42 +133,203 @@ def tmux_exists(name: str) -> bool:
 TAIL_LINES = 10
 
 CLAUDE_MARKER = re.compile(r"esc to interrupt")
+# "auto mode on - 1 shell - 1 agent": the turn is over but a background
+# shell it started has not finished, so the session is neither working
+# nor free.
+CLAUDE_WAIT_MARKER = re.compile(r"\b\d+ shells?\b")
 CODEX_MARKER = re.compile(r"\(\d+s.{0,3}esc to interrupt\)")
 GEMINI_MARKER = re.compile(r"\(esc to cancel,\s*\d+s\)")
 
 
-def running_claude(lines: list[str]) -> bool:
-    return bool(lines) and bool(CLAUDE_MARKER.search(lines[-1]))
+def state_claude(lines: list[str]) -> str:
+    if not lines:
+        return "idle"
+
+    footer = lines[-1]
+
+    if CLAUDE_MARKER.search(footer):
+        return "run"
+
+    if CLAUDE_WAIT_MARKER.search(footer):
+        return "wait"
+
+    return "idle"
 
 
-def running_codex(lines: list[str]) -> bool:
+def state_codex(lines: list[str]) -> str:
     # "Working (5s - esc to interrupt)", third line from the bottom.
     # Startup draws the same form while booting MCP servers, which is
     # also busy, so both count.
-    return any(CODEX_MARKER.search(line) for line in lines[-TAIL_LINES:])
+    if any(CODEX_MARKER.search(line) for line in lines[-TAIL_LINES:]):
+        return "run"
+
+    return "idle"
 
 
-def running_gemini(lines: list[str]) -> bool:
+def state_gemini(lines: list[str]) -> str:
     # "Finalizing Japanese Count (esc to cancel, 15s)", above the box.
-    return any(GEMINI_MARKER.search(line) for line in lines[-TAIL_LINES:])
+    if any(GEMINI_MARKER.search(line) for line in lines[-TAIL_LINES:]):
+        return "run"
+
+    return "idle"
+
+
+# Resuming means three different things. claude is told a session id it
+# minted; codex is told a thread name, which amux sets with /rename
+# because codex otherwise names threads after their first prompt; gemini
+# is told a session id that amux mints itself, derived from the name so
+# it never has to be stored anywhere.
+CODEX_INDEX = Path.home() / ".codex" / "session_index.jsonl"
+CODEX_READY = "Ask Codex to do anything"
+CODEX_RENAMED = "Session renamed to"
+CODEX_UPDATE_PROMPT = "Update available!"
+CODEX_UPDATE_SKIP = "2"
+CODEX_READY_TIMEOUT = 30
+
+
+def gemini_session_id(name: str) -> str:
+    return str(uuid.uuid5(uuid.NAMESPACE_URL, f"amux:{name}"))
+
+
+def find_claude(name: str, by_name) -> str | None:
+    matches = by_name.get(name, [])
+
+    if len(matches) > 1:
+        print_duplicates(name, matches)
+        raise SystemExit(1)
+
+    return matches[0].session_id if matches else None
+
+
+def find_codex(name: str, by_name) -> str | None:
+    # codex resume takes the thread name itself, so finding the entry is
+    # only about knowing whether there is one to resume.
+    if not CODEX_INDEX.exists():
+        return None
+
+    for line in CODEX_INDEX.read_text().splitlines():
+        try:
+            entry = json.loads(line)
+        except ValueError:
+            continue
+
+        if entry.get("thread_name") == name:
+            return name
+
+    return None
+
+
+def find_gemini(name: str, by_name) -> str | None:
+    session_id = gemini_session_id(name)
+
+    # gemini files a session as session-<date>-<first 8 of id>.jsonl,
+    # under a per-project directory whose name it derives itself, so the
+    # project directory is globbed rather than recomputed.
+    pattern = str(
+        Path.home()
+        / ".gemini" / "tmp" / "*" / "chats"
+        / f"session-*-{session_id[:8]}.json*"
+    )
+
+    return session_id if glob.glob(pattern) else None
+
+
+def send_keys(name: str, *keys: str, literal: bool = False):
+    flags = ["-l"] if literal else []
+
+    subprocess.run(
+        ["tmux", "send-keys", "-t", f"={name}:", *flags, *keys],
+        check=True,
+    )
+
+
+def after_start_codex(name: str, resumed: bool) -> bool:
+    # Sending keys blind would type into whatever dialog codex happens to
+    # be showing, and its update prompt defaults to running an install.
+    # Wait for the composer, answering only that one prompt, and only
+    # with Skip, which installs nothing.
+    deadline = time.monotonic() + CODEX_READY_TIMEOUT
+    skipped = False
+
+    while time.monotonic() < deadline:
+        pane = capture_pane(name)
+
+        if CODEX_READY in pane:
+            break
+
+        if CODEX_UPDATE_PROMPT in pane and not skipped:
+            send_keys(name, CODEX_UPDATE_SKIP, literal=True)
+            skipped = True
+
+        time.sleep(0.5)
+    else:
+        print(f"WARNING: {name}: codex did not reach its composer")
+        return False
+
+    if resumed:
+        # The thread already carries the name that found it.
+        return True
+
+    send_keys(name, f"/rename {name}", literal=True)
+
+    # The slash-command popup is still open the instant the text lands,
+    # and swallows the first Enter as a completion. Let it settle, then
+    # press once more if the composer still holds the line.
+    time.sleep(1.0)
+    send_keys(name, "Enter")
+
+    deadline = time.monotonic() + CODEX_READY_TIMEOUT
+    retried = False
+
+    while time.monotonic() < deadline:
+        pane = capture_pane(name)
+
+        if CODEX_RENAMED in pane:
+            return True
+
+        if not retried and f"/rename {name}" in pane:
+            time.sleep(1.0)
+            send_keys(name, "Enter")
+            retried = True
+
+        time.sleep(0.5)
+
+    print(f"WARNING: {name}: /rename not confirmed, resume may not find it")
+    return False
 
 
 AGENTS = {
     "claude": {
-        "command": "claude --permission-mode auto",
-        "running": running_claude,
-        # Only claude is wired to session lookup, naming and resume.
-        "resumable": True,
+        "state": state_claude,
+        "find": find_claude,
+        "new": lambda name: (
+            f"claude --permission-mode auto --name {shlex.quote(name)}"
+        ),
+        "resume": lambda name, token: (
+            f"claude --permission-mode auto --resume {shlex.quote(token)}"
+        ),
+        # Only claude keeps its sessions where the agent SDK can list
+        # them, which is also the only place duplicates can arise.
+        "sdk": True,
     },
     "codex": {
-        "command": "codex",
-        "running": running_codex,
-        "resumable": False,
+        "state": state_codex,
+        "find": find_codex,
+        "new": lambda name: "codex",
+        "resume": lambda name, token: f"codex resume {shlex.quote(token)}",
+        "after_start": after_start_codex,
+        "sdk": False,
     },
     "gemini": {
-        "command": "gemini",
-        "running": running_gemini,
-        "resumable": False,
+        "state": state_gemini,
+        "find": find_gemini,
+        "new": lambda name: (
+            f"gemini --session-id {shlex.quote(gemini_session_id(name))}"
+        ),
+        "resume": lambda name, token: (
+            f"gemini --resume {shlex.quote(token)}"
+        ),
+        "sdk": False,
     },
 }
 
@@ -180,6 +344,7 @@ COLORS = {
     "down": "\033[90m",
     "run": "\033[1;33m",
     "idle": "\033[36m",
+    "wait": "\033[1;34m",
     "dead": "\033[1;31m",
     "claude": "\033[35m",
     "codex": "\033[34m",
@@ -254,7 +419,17 @@ def tmux_live() -> dict[str, bool] | None:
     return live
 
 
-def tmux_running(targets: list[tuple[str, str]]) -> dict[str, bool]:
+def capture_pane(name: str) -> str:
+    result = subprocess.run(
+        ["tmux", "capture-pane", "-p", "-t", f"={name}:"],
+        capture_output=True,
+        text=True,
+    )
+
+    return result.stdout if result.returncode == 0 else ""
+
+
+def tmux_states(targets: list[tuple[str, str]]) -> dict[str, str]:
     # One tmux invocation for every pane, with a separator after each so
     # the concatenated output can be split back apart.
     if not targets:
@@ -281,14 +456,14 @@ def tmux_running(targets: list[tuple[str, str]]) -> dict[str, bool]:
         # A pane went away mid-capture; don't guess which.
         return {}
 
-    running = {}
+    states = {}
 
     for (name, kind), pane in zip(targets, panes):
         lines = [line for line in pane.splitlines() if line.strip()]
 
-        running[name] = AGENTS[kind]["running"](lines)
+        states[name] = AGENTS[kind]["state"](lines)
 
-    return running
+    return states
 
 
 def get_sessions():
@@ -323,20 +498,15 @@ def print_duplicates(name: str, matches):
         )
 
 
-def start_tmux(name: str, kind: str, session=None):
-    base = AGENTS[kind]["command"]
+def start_tmux(name: str, kind: str, token: str | None):
+    agent = AGENTS[kind]
 
-    if session is None:
+    if token is None:
         print(f"new:     {name} ({kind})")
-
-        command = f"exec {base}"
-
-        if kind == "claude":
-            command += f" --name {shlex.quote(name)}"
+        command = f"exec {agent['new'](name)}"
     else:
-        print(f"resume:  {name} <- {session.session_id}")
-
-        command = f"exec {base} --resume {shlex.quote(session.session_id)}"
+        print(f"resume:  {name} ({kind}) <- {token}")
+        command = f"exec {agent['resume'](name, token)}"
 
     subprocess.run(
         [
@@ -352,26 +522,30 @@ def start_tmux(name: str, kind: str, session=None):
 
 
 def ensure(name: str, kind: str, by_name, attach: bool):
-    matches = by_name.get(name, []) if AGENTS[kind]["resumable"] else []
-
-    if len(matches) > 1:
-        print_duplicates(name, matches)
-        raise SystemExit(1)
+    agent = AGENTS[kind]
 
     if tmux_exists(name):
         print(f"exists:  {name}")
 
-    elif len(matches) == 1:
-        start_tmux(name, kind, matches[0])
-
     else:
-        start_tmux(name, kind)
+        # No session to resume is not a failure: start a fresh one under
+        # the same identity so the name keeps working either way.
+        token = agent["find"](name, by_name)
+
+        start_tmux(name, kind, token)
+
+        # Runs for a resume too: the startup dialogs that would swallow
+        # keystrokes are in the way either way.
+        if "after_start" in agent:
+            agent["after_start"](name, resumed=token is not None)
 
     if attach:
-        subprocess.run(
+        attached = subprocess.run(
             ["tmux", "attach-session", "-t", f"={name}"],
-            check=True,
         )
+
+        if attached.returncode != 0:
+            die(f"could not attach to {name}", attached.returncode)
 
 
 def restore(show_all: bool = False):
@@ -409,7 +583,7 @@ def restore(show_all: bool = False):
         print(f"skipped: {skipped} marked down (--all to start them)")
 
     resumable = [
-        name for name, kind in wanted if AGENTS[kind]["resumable"]
+        name for name, kind in wanted if AGENTS[kind]["sdk"]
     ]
 
     by_name = group_sessions(get_sessions()) if resumable else {}
@@ -538,16 +712,23 @@ def rename(old: str, new: str):
     print(f"state:   {old} -> {new}")
 
 
-def describe(name: str, by_name) -> str:
-    matches = by_name.get(name, [])
+def describe(name: str, kind: str, by_name) -> str:
+    if kind == "claude":
+        matches = by_name.get(name, [])
 
-    if len(matches) > 1:
-        return f"duplicate ({len(matches)} sessions)"
+        if len(matches) > 1:
+            return f"duplicate ({len(matches)} sessions)"
 
-    if len(matches) == 1:
-        return matches[0].session_id
+        return matches[0].session_id if matches else "-"
 
-    return "-"
+    if kind == "gemini":
+        # Derived from the name, so show it even before the first run
+        # rather than pretending there is nothing to resume into.
+        found = AGENTS[kind]["find"](name, by_name)
+
+        return gemini_session_id(name) if found else "-"
+
+    return AGENTS[kind]["find"](name, by_name) or "-"
 
 
 def list_names(show_all: bool, detail: bool):
@@ -566,7 +747,7 @@ def list_names(show_all: bool, detail: bool):
     entries = sorted(entries)
 
     seen = live or {}
-    running = tmux_running(
+    states = tmux_states(
         [(name, kind) for name, kind, _ in entries if seen.get(name)]
     )
 
@@ -580,7 +761,7 @@ def list_names(show_all: bool, detail: bool):
             # tmux session outlived the agent that was running in it.
             return "up", "dead"
 
-        return "up", "run" if running.get(name) else "idle"
+        return "up", states.get(name, "idle")
 
     rows = [(name, kind, *columns(name)) for name, kind, _ in entries]
 
@@ -603,11 +784,7 @@ def list_names(show_all: bool, detail: bool):
         cells = [(name, None), (kind, kind), (tmux, tmux), (state, state)]
 
         if by_name is not None:
-            described = (
-                describe(name, by_name)
-                if AGENTS[kind]["resumable"]
-                else "-"
-            )
+            described = describe(name, kind, by_name)
             cells.append((
                 described,
                 "warn" if described.startswith("duplicate") else "dim",
@@ -686,7 +863,7 @@ def sync(assume_yes: bool):
 
     if to_start:
         resumable = [
-            name for name, kind in to_start if AGENTS[kind]["resumable"]
+            name for name, kind in to_start if AGENTS[kind]["sdk"]
         ]
         by_name = group_sessions(get_sessions()) if resumable else {}
 
@@ -838,7 +1015,7 @@ def main():
 
         by_name = {}
 
-        if AGENTS[kind]["resumable"]:
+        if AGENTS[kind]["sdk"]:
             by_name = group_sessions(get_sessions())
 
             # Check before registering, so ambiguous Claude state
