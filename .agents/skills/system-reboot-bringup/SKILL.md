@@ -88,7 +88,36 @@ curl -fsS http://127.0.0.1:9992/json/version
 - アカウント選択画面で `YuisekinTV` を選択
 - 右上にタイル配置（`desktop-windows-layout` / `vacuumtube` スキル手順）
 
-### 3) 音声待受 + 字幕オーバーレイ（tmux 管理）
+### 3) 字幕オーバーレイ + lock screen を起動（`acaption-overlay` / `asec-lock-screen`）
+
+字幕表示は `repos/acaption`、lock screen は `repos/asec` を使います。起動責務は `yuiclaw voice-command operator` に集約されています。
+
+```bash
+yuiclaw voice-command operator start-overlay
+```
+
+`acaption` / `asec` は起動時に X11 desktop session を自動検出するため、通常は
+`DISPLAY` / `XAUTHORITY` を明示しない。
+
+起動確認:
+
+```bash
+yuiclaw voice-command operator status
+yuiclaw voice-command operator logs-overlay
+yuiclaw voice-command operator logs-lock-screen
+echo '{"type":"notify","text":"bringup OK"}' | nc -q1 127.0.0.1 47832
+echo '{"type":"lock_screen_show","text":"SYSTEM LOCKED"}' | nc -q1 127.0.0.1 47833
+echo '{"type":"lock_screen_hide"}' | nc -q1 127.0.0.1 47833
+```
+
+期待:
+
+- `overlay: RUNNING (acaption-overlay)`
+- `lock-screen: RUNNING (asec-lock-screen)`
+- `overlay endpoint ready: 127.0.0.1:47832`
+- `lock screen endpoint ready: 127.0.0.1:47833`
+
+### 4) 音声待受（tmux 管理）
 
 `yuiclaw voice-command operator` が以下をまとめて管理します。
 
@@ -105,7 +134,15 @@ curl -fsS http://127.0.0.1:9992/json/version
 yuiclaw voice-command operator start-agent
 ```
 
-#### moonshine バックエンド（高速・省メモリ・server不要）
+#### moonshine バックエンド + 声紋認証（推奨構成）
+
+```bash
+STT_BACKEND=moonshine \
+WHISPER_AGENT_SPEAKER_ID=1 \
+yuiclaw voice-command operator start-agent
+```
+
+#### moonshine バックエンド（声紋認証なし）
 
 ```bash
 STT_BACKEND=moonshine \
@@ -118,6 +155,7 @@ moonshine は `whisper-server-ja` セッションを起動しません。モデ�
 
 ```bash
 STT_BACKEND=moonshine MOONSHINE_MODEL_SIZE=tiny \
+WHISPER_AGENT_SPEAKER_ID=1 \
 yuiclaw voice-command operator start-agent
 ```
 
@@ -141,8 +179,13 @@ yuiclaw voice-command operator logs-overlay
 - DJI マイクを明示したいときは `WHISPER_MIC_SOURCE=... yuiclaw voice-command operator restart-agent`
 - moonshine バックエンドは音声キャプチャに `ffmpeg`（`parec` 不要）を使用します
 - biometric lock は既定で有効です。無効化したいときだけ `WHISPER_AGENT_BIOMETRIC_LOCK=0` を付けます
+- `WHISPER_AGENT_SPEAKER_ID=1` で ECAPA-TDNN 声紋認証を有効化（お嬢様のみコマンド実行可能）
+  - マスターボイスプリント: `repos/ahear/python/src/ahear/models/master_voiceprint.npy`
+  - 閾値: `WHISPER_AGENT_SPEAKER_THRESHOLD`（既定 0.60、ライブマイク実測値 0.63〜0.78）
+  - 認証失敗時: 「声紋認証に失敗しました。もう一度お試しください。」と返答してコマンドをブロック
+  - マスター再生成: `cd tmp/whispercpp-listen && python3 prototype_speaker_id.py`
 
-### 4) ASEE Viewer（ウェブカメラ + 顔認識オーバーレイ）を起動（tmux 管理）
+### 5) ASEE Viewer（ウェブカメラ + 顔認識オーバーレイ）を起動（tmux 管理）
 
 ASEE Viewer は `repos/asee/tmp_main.sh` が起動する Electron viewer + Python backend の組です。
 
@@ -211,16 +254,18 @@ tmux ls | rg 'voicevox-bg|vacuumtube-bg|whisper-server-ja|whisper-agent-ja|acapt
 curl -fsS http://127.0.0.1:50021/version
 curl -fsS http://127.0.0.1:9992/json/version
 curl -fsS http://localhost:8765/status
+# overlay IPC 確認
+echo '{"type":"notify","text":"bringup OK"}' | nc -q1 127.0.0.1 47832
 ```
 
 期待される `tmux` セッション（通常運用）:
 
 - `voicevox-bg`
 - `vacuumtube-bg`
-- `whisper-server-ja`
+- `acaption-overlay`（字幕オーバーレイ / IPC :47832）
+- `asec-lock-screen`（lock screen / IPC :47833）
+- `whisper-server-ja`（STT_BACKEND=whisper のときのみ）
 - `whisper-agent-ja`
-- `acaption-overlay`
-- `asec-lock-screen`
 - `asee-bg`（起動スクリプト完了後は idle、ASEE プロセス自体は tmux 管理で稼働中）
 
 注意:
@@ -256,14 +301,23 @@ python3 /home/yuiseki/Workspaces/.codex/skills/owner-attention-call/scripts/call
 - `~/vacuumtube.sh` 起動漏れ or `:9992` 未設定
 - 確認: `curl -fsS http://127.0.0.1:9992/json/version`
 
-### 3) ASEE Viewer の video server に繋がらない
+### 4) overlay / lock screen IPC に繋がらない
+
+- `acaption-overlay` または `asec-lock-screen` セッションが未起動、またはポート競合で落ちている
+- 確認: `nc -zv 127.0.0.1 47832`
+- ログ確認: `yuiclaw voice-command operator logs-overlay`
+- ログ確認: `yuiclaw voice-command operator logs-lock-screen`
+- 再起動手順は Step 3 を参照
+- 別プロセスがポートを使用中の場合: `lsof -i :47832 -i :47833` で PID を特定して kill
+
+### 5) ASEE Viewer の video server に繋がらない
 
 - `tmp_main.sh restart` が失敗しているか、まだ起動中
 - `tmux capture-pane -pt asee-bg -S -40` でログを確認
 - `DISPLAY` が合っていないと Electron ウィンドウが開かない（step 0 で確認した値を使うこと）
 - 手動で再起動: `cd ~/Workspaces/repos/asee && DISPLAY=${DESKTOP_DISPLAY} bash tmp_main.sh restart --port 8765 --cameras 0,2,4,6 --capture-profile 720p --opencv-threads 1`
 
-### 4) ASEE Viewer ウィンドウが前面に出たまま戻らない
+### 6) ASEE Viewer ウィンドウが前面に出たまま戻らない
 
 - `--backmost` の KWin スクリプトが効いていない可能性
 - 手動で最背面に: `cd ~/Workspaces/repos/asee && DISPLAY=${DESKTOP_DISPLAY} bash tmp_main.sh layout --port 8765 --backmost`

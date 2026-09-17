@@ -9,8 +9,8 @@ description: Google Keep CLI (個人アカウント対応) を操作してノー
 `gkeep` CLI ツールを使用して、個人用 Google Keep アカウントのノートを操作します。`gogcli` ではアクセスできない個人アカウントのデータを、`gkeepapi` を通じて安全に読み書きします。
 
 ## 前提
-- 実行バイナリ: `gkeep`
-- 認証設定: `gkeep config set email <email>` および `gkeep config set master_key <key>`（`~/.config/gkeepcli/credentials.json` に保存）。
+- 実行コマンド: `gkeep`
+- 認証設定: `gkeepapi_credential.json` を利用。
 - 特徴: デフォルトで「ピン留めされたノート」を優先的に表示します。
 
 ## 基本コマンド

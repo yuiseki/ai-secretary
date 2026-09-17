@@ -47,13 +47,13 @@ description: "VacuumTube を2台目インスタンス（無音 / system-level mu
 - `CDP :9993` 応答確認
 
 ```bash
-.codex/skills/vacuumtube-silent-live-cam/scripts/start_silent_instance.sh
+.gemini/skills/vacuumtube-silent-live-cam/scripts/start_silent_instance.sh
 ```
 
 よく使うオプション:
 
 ```bash
-.codex/skills/vacuumtube-silent-live-cam/scripts/start_silent_instance.sh \
+.gemini/skills/vacuumtube-silent-live-cam/scripts/start_silent_instance.sh \
   --display :0 \
   --port 9993 \
   --session vacuumtube-bg-2 \
@@ -72,7 +72,7 @@ description: "VacuumTube を2台目インスタンス（無音 / system-level mu
 - 再生後にタイトル/本文で検証
 
 ```bash
-node .codex/skills/vacuumtube-silent-live-cam/scripts/open_tv_channel_live_tile_fast.js \
+node .gemini/skills/vacuumtube-silent-live-cam/scripts/open_tv_channel_live_tile_fast.js \
   --cdp-port 9993 \
   --browse-url 'https://www.youtube.com/tv/@FNNnewsCH/streams#/browse?c=UCoQBJMzcwmXrRSHBFAlTsIw' \
   --keyword 'いまの渋谷' \
@@ -84,7 +84,7 @@ node .codex/skills/vacuumtube-silent-live-cam/scripts/open_tv_channel_live_tile_
 別例（Cerevo / 秋葉原ライブカメラ）:
 
 ```bash
-node .codex/skills/vacuumtube-silent-live-cam/scripts/open_tv_channel_live_tile_fast.js \
+node .gemini/skills/vacuumtube-silent-live-cam/scripts/open_tv_channel_live_tile_fast.js \
   --cdp-port 9993 \
   --browse-url 'https://www.youtube.com/tv/@Cerevolivecamera/streams#/browse?c=UCrGS8VyrgCqYwaogH5bQpxQ' \
   --keyword '秋葉原ライブカメラ' \
@@ -94,7 +94,7 @@ node .codex/skills/vacuumtube-silent-live-cam/scripts/open_tv_channel_live_tile_
 別例（TBS NEWS DIG / 新宿駅前ライブカメラ）:
 
 ```bash
-node .codex/skills/vacuumtube-silent-live-cam/scripts/open_tv_channel_live_tile_fast.js \
+node .gemini/skills/vacuumtube-silent-live-cam/scripts/open_tv_channel_live_tile_fast.js \
   --cdp-port 9993 \
   --browse-url 'https://www.youtube.com/tv/@tbsnewsdig/streams#/browse?c=UC6AG81pAkf6Lbi_1VC5NmPA' \
   --keyword '新宿駅前のライブカメラ' \
@@ -104,7 +104,7 @@ node .codex/skills/vacuumtube-silent-live-cam/scripts/open_tv_channel_live_tile_
 別例（池袋 / サンシャイン60通りライブカメラ）:
 
 ```bash
-node .codex/skills/vacuumtube-silent-live-cam/scripts/open_tv_channel_live_tile_fast.js \
+node .gemini/skills/vacuumtube-silent-live-cam/scripts/open_tv_channel_live_tile_fast.js \
   --cdp-port 9993 \
   --browse-url 'https://www.youtube.com/tv/@%E3%82%B5%E3%83%B3%E3%82%B7%E3%83%A3%E3%82%A4%E3%83%B360%E9%80%9A%E3%82%8A%E3%83%A9%E3%82%A4%E3%83%96%E3%82%AB%E3%83%A1%E3%83%A9/streams#/browse?c=UCEloGRn_GCcr-I_6f5MYJPw' \
   --keyword 'サンシャイン60通りライブカメラ' \

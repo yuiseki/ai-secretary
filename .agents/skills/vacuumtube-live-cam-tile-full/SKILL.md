@@ -20,8 +20,8 @@ description: "VacuumTube を無音の複数インスタンス（例: 4台, CDP :
 ## 前提
 
 - 既存スキル `vacuumtube-silent-live-cam` が使える状態
-  - `.codex/skills/vacuumtube-silent-live-cam/scripts/start_silent_instance.sh`
-  - `.codex/skills/vacuumtube-silent-live-cam/scripts/open_tv_channel_live_tile_fast.js`
+  - `.gemini/skills/vacuumtube-silent-live-cam/scripts/start_silent_instance.sh`
+  - `.gemini/skills/vacuumtube-silent-live-cam/scripts/open_tv_channel_live_tile_fast.js`
 - `VacuumTube` メインインスタンス（`vacuumtube-bg`, `:9992`）は維持したまま運用する前提
 - KDE Plasma + KWin (X11)
 - `tmux`, `curl`, `jq`, `node`, `pactl`, `lsof`, `wmctrl`, `xdotool`, `qdbus`, `xrandr`, `xdpyinfo`
@@ -53,25 +53,25 @@ description: "VacuumTube を無音の複数インスタンス（例: 4台, CDP :
 既存の `start_silent_instance.sh` をポート/セッション/instance-dir を変えて複数回使う。
 
 ```bash
-.codex/skills/vacuumtube-silent-live-cam/scripts/start_silent_instance.sh \
+.gemini/skills/vacuumtube-silent-live-cam/scripts/start_silent_instance.sh \
   --session vacuumtube-bg-2 \
   --port 9993 \
   --sink vacuumtube_silent \
   --instance-dir ~/.cache/yuiclaw/vacuumtube-multi/instance2
 
-.codex/skills/vacuumtube-silent-live-cam/scripts/start_silent_instance.sh \
+.gemini/skills/vacuumtube-silent-live-cam/scripts/start_silent_instance.sh \
   --session vacuumtube-bg-3 \
   --port 9994 \
   --sink vacuumtube_silent \
   --instance-dir ~/.cache/yuiclaw/vacuumtube-multi/instance3
 
-.codex/skills/vacuumtube-silent-live-cam/scripts/start_silent_instance.sh \
+.gemini/skills/vacuumtube-silent-live-cam/scripts/start_silent_instance.sh \
   --session vacuumtube-bg-4 \
   --port 9995 \
   --sink vacuumtube_silent \
   --instance-dir ~/.cache/yuiclaw/vacuumtube-multi/instance4
 
-.codex/skills/vacuumtube-silent-live-cam/scripts/start_silent_instance.sh \
+.gemini/skills/vacuumtube-silent-live-cam/scripts/start_silent_instance.sh \
   --session vacuumtube-bg-5 \
   --port 9996 \
   --sink vacuumtube_silent \
@@ -100,7 +100,7 @@ pactl get-sink-mute vacuumtube_silent
 ### 左上候補: 渋谷（FNN）
 
 ```bash
-node .codex/skills/vacuumtube-silent-live-cam/scripts/open_tv_channel_live_tile_fast.js \
+node .gemini/skills/vacuumtube-silent-live-cam/scripts/open_tv_channel_live_tile_fast.js \
   --cdp-port 9993 \
   --browse-url 'https://www.youtube.com/tv/@FNNnewsCH/streams#/browse?c=UCoQBJMzcwmXrRSHBFAlTsIw' \
   --keyword 'いまの渋谷' \
@@ -110,7 +110,7 @@ node .codex/skills/vacuumtube-silent-live-cam/scripts/open_tv_channel_live_tile_
 ### 右上候補: 新宿（TBS NEWS DIG）
 
 ```bash
-node .codex/skills/vacuumtube-silent-live-cam/scripts/open_tv_channel_live_tile_fast.js \
+node .gemini/skills/vacuumtube-silent-live-cam/scripts/open_tv_channel_live_tile_fast.js \
   --cdp-port 9994 \
   --browse-url 'https://www.youtube.com/tv/@tbsnewsdig/streams#/browse?c=UC6AG81pAkf6Lbi_1VC5NmPA' \
   --keyword '新宿駅前のライブカメラ' \
@@ -120,7 +120,7 @@ node .codex/skills/vacuumtube-silent-live-cam/scripts/open_tv_channel_live_tile_
 ### 左下候補: 池袋（サンシャイン60通り）
 
 ```bash
-node .codex/skills/vacuumtube-silent-live-cam/scripts/open_tv_channel_live_tile_fast.js \
+node .gemini/skills/vacuumtube-silent-live-cam/scripts/open_tv_channel_live_tile_fast.js \
   --cdp-port 9995 \
   --browse-url 'https://www.youtube.com/tv/@%E3%82%B5%E3%83%B3%E3%82%B7%E3%83%A3%E3%82%A4%E3%83%B360%E9%80%9A%E3%82%8A%E3%83%A9%E3%82%A4%E3%83%96%E3%82%AB%E3%83%A1%E3%83%A9/streams#/browse?c=UCEloGRn_GCcr-I_6f5MYJPw' \
   --keyword 'サンシャイン60通りライブカメラ' \
@@ -130,7 +130,7 @@ node .codex/skills/vacuumtube-silent-live-cam/scripts/open_tv_channel_live_tile_
 ### 右下候補: 秋葉原（Cerevo）
 
 ```bash
-node .codex/skills/vacuumtube-silent-live-cam/scripts/open_tv_channel_live_tile_fast.js \
+node .gemini/skills/vacuumtube-silent-live-cam/scripts/open_tv_channel_live_tile_fast.js \
   --cdp-port 9996 \
   --browse-url 'https://www.youtube.com/tv/@Cerevolivecamera/streams#/browse?c=UCrGS8VyrgCqYwaogH5bQpxQ' \
   --keyword '秋葉原ライブカメラ' \
@@ -260,12 +260,14 @@ pactl get-sink-mute vacuumtube_silent
 - 各ポートが目的の `#/watch?v=...` にいる
 - `vacuumtube_silent` は `Mute: yes`
 
-## 推奨の東京4地点マッピング（例）
+## 推奨の東京4地点マッピング（現行デフォルト）
 
 - 左上 (`:9993`): 渋谷 / FNN
-- 右上 (`:9994`): 新宿 / TBS NEWS DIG
+- 右上 (`:9994`): 秋葉原 / Cerevo
 - 左下 (`:9995`): 池袋 / サンシャイン60通り
-- 右下 (`:9996`): 秋葉原 / Cerevo
+- 右下 (`:9996`): 浅草 / TBS NEWS DIG
+  - fallback: 三ノ輪
+  - fallback: 横浜みなとみらい
 
 必要に応じて、ポートと地域の対応は入れ替えてよい。
 
@@ -308,4 +310,3 @@ pactl get-sink-mute vacuumtube_silent
 - `vacuumtube-live-cam-tile`（右下 FHD 領域版）
 - `desktop-windows-layout`（X11/KDE のウィンドウ配置・確認）
 - `system-reboot-bringup`（再起動後の常駐群復旧）
-

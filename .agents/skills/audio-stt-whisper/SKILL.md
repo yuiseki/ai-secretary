@@ -304,5 +304,6 @@ python3 /home/yuiseki/Workspaces/.codex/skills/owner-attention-call/scripts/call
 - 音声コマンド実装: `repos/arouter/scripts/voice_command_runtime.py`
 - 音声再生（通知音/テストトーン）: `.codex/skills/audio-play/SKILL.md`
 - VOICEVOX 発話: `.codex/skills/audio-speak-voicebox/SKILL.md`
+- 手動確認呼びかけ: `.codex/skills/owner-attention-call/SKILL.md`
 - VacuumTube 操作: `.codex/skills/vacuumtube/SKILL.md`
 - ウィンドウ配置操作: `.codex/skills/desktop-windows-layout/SKILL.md`

@@ -17,18 +17,18 @@ description: 30分ごとに秘書モードで Yamato/Gmail/Tasks/Calendar を巡
 
 ## 実行順序（固定）
 
-1. `.codex/skills/weather/SKILL.md` (`make run`) で天気を取得
-2. `.codex/skills/news/SKILL.md` (`make run`) でニュースを取得
-3. `.codex/skills/gog-gmail/SKILL.md` および `.codex/skills/gog-calendar/SKILL.md` で情報を取得
-4. `.codex/skills/hatebu/SKILL.md` (`hatebu ls --json`) でブックマークを取得
-5. `.codex/skills/gyazo/SKILL.md` (`gyazo ls --limit 20 --json`) でキャプチャを取得
-6. `.codex/skills/gh-check-notification/SKILL.md` および `.codex/skills/gh-check-activity/SKILL.md` で GitHub 状況を取得
+1. `.gemini/skills/weather/SKILL.md` で天気を取得
+2. `.gemini/skills/news/SKILL.md` でニュースを取得
+3. `.gemini/skills/gog-gmail/SKILL.md` および `.gemini/skills/gog-calendar/SKILL.md` で情報を取得
+4. `.gemini/skills/hatebu/SKILL.md` (`hatebu ls --json`) でブックマークを取得
+5. `.gemini/skills/gyazo/SKILL.md` (`gyazo ls --limit 20 --json`) でキャプチャを取得
+6. `.gemini/skills/gh-check-notification/SKILL.md` および `.gemini/skills/gh-check-activity/SKILL.md` で GitHub 状況を取得
 7. 取得した全情報を `/home/yuiseki/Workspaces/.ai-secretary/heartbeat/cache/` に保存する
 8. メール内容からタスク追加・更新、予定追加の「提案リスト」を作成
 9. ユーザーに提案リストを提示し、承認を得る
 10. 承認された項目のみ、タスク・カレンダーに反映
 11. 未完了タスクをリマインド
-12. `.codex/skills/yamato-check/SKILL.md` で明日のヤマト受取時間を確認・必要なら変更を提案
+12. `.gemini/skills/yamato-check/SKILL.md` で明日のヤマト受取時間を確認・必要なら変更を提案
 
 ## 前提
 
@@ -98,11 +98,11 @@ find /home/yuiseki/Workspaces/.ai-secretary/heartbeat/personalization-rules -nam
 
 - **Weather:** 現在地の天気を取得
   ```bash
-  cd /home/yuiseki/Workspaces/repos/weathercli && make run > /dev/null && cp cache/current.json /home/yuiseki/Workspaces/.ai-secretary/heartbeat/cache/weather.json
+  weathercli --json > /home/yuiseki/Workspaces/.ai-secretary/heartbeat/cache/weather.json
   ```
 - **News:** 最新ニュースを取得
   ```bash
-  cd /home/yuiseki/Workspaces/repos/newscli && make run > /dev/null && cp cache/news.json /home/yuiseki/Workspaces/.ai-secretary/heartbeat/cache/news.json
+  newscli --json > /home/yuiseki/Workspaces/.ai-secretary/heartbeat/cache/news.json
   ```
 - **Gmail:** `newer_than:1d` で最近のメールを取得
   ```bash
@@ -149,9 +149,9 @@ find /home/yuiseki/Workspaces/.ai-secretary/heartbeat/personalization-rules -nam
 8. `yamato-check` を実行する。
 
 - 明日以降のヤマト通知を確認する。
-- `.codex/skills/gog-calendar/SKILL.md` で明日の予定を確認する。
+- `.gemini/skills/gog-calendar/SKILL.md` で明日の予定を確認する。
 - **既に受取日時を変更済みの場合はスキップする。**
-- 受取時間にズレがあれば、変更案をユーザーに提示し、承認を得てから `.codex/skills/yamato-change/SKILL.md` を実行する。
+- 受取時間にズレがあれば、変更案をユーザーに提示し、承認を得てから `.gemini/skills/yamato-change/SKILL.md` を実行する。
 - 変更を行った場合は `yuiseki@gmail.com` に完了通知を送る。
 
 ## 実用コマンド例

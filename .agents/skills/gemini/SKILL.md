@@ -10,9 +10,16 @@ description: |
 
 Gemini CLIを使用してコードレビュー・分析を実行するスキル。
 
-## 実行コマンド
+## 実行コマンド（現行CLI対応）
 
-gemini --approval-mode plan --output-format text --cwd <project_directory> -p "<request>"
+```bash
+cd <project_directory> && gemini --output-format text -p "<request>"
+```
+
+### 任意オプション
+
+- `--approval-mode plan` は `experimental.plan` 有効時のみ利用可能。
+- `--model <model_name>` でモデル指定可能。
 
 ## プロンプトのルール
 
@@ -24,36 +31,40 @@ gemini --approval-mode plan --output-format text --cwd <project_directory> -p "<
 
 | パラメータ | 説明 |
 |-----------|------|
-| `--approval-mode plan` | PLANモードで実行（Read onlyで安全な分析用） |
+| `cd <dir>` | 対象プロジェクトのディレクトリへ移動（`--cwd` は非対応） |
 | `--output-format text` | テキスト形式で出力（コード例を含む） |
-| `--cwd <dir>` | 対象プロジェクトのディレクトリ |
 | `-p "<request>"` | 依頼内容（日本語可） |
+| `--approval-mode plan` | 任意。環境で有効な場合のみ使用 |
 
 ## 使用例
 
-**注意**: 各例では末尾に「確認不要、具体的な提案まで出力」の指示を含めている。
+**注意**: 各例では末尾に「確認不要、具体的な提案まで出力」の指示を含める。
 
 ### コードレビュー
-gemini --approval-mode plan --output-format text --cwd /path/to/project -p "このプロジェクトのコードをレビューして、改善点を指摘してください。確認や質問は不要です。具体的な修正案とコード例まで自主的に出力してください。"
+```bash
+cd /path/to/project && gemini --output-format text -p "このプロジェクトのコードをレビューして、改善点を指摘してください。確認や質問は不要です。具体的な修正案とコード例まで自主的に出力してください。"
+```
 
 ### バグ調査
-gemini --approval-mode plan --output-format text --cwd /path/to/project -p "認証処理でエラーが発生する原因を調査してください。確認や質問は不要です。原因の特定と具体的な修正案まで自主的に出力してください。"
+```bash
+cd /path/to/project && gemini --output-format text -p "認証処理でエラーが発生する原因を調査してください。確認や質問は不要です。原因の特定と具体的な修正案まで自主的に出力してください。"
+```
 
 ### アーキテクチャ分析
-gemini --approval-mode plan --output-format text --cwd /path/to/project -p "このプロジェクトのアーキテクチャを分析して説明してください。確認や質問は不要です。改善提案まで自主的に出力してください。"
+```bash
+cd /path/to/project && gemini --output-format text -p "このプロジェクトのアーキテクチャを分析して説明してください。確認や質問は不要です。改善提案まで自主的に出力してください。"
+```
 
 ### リファクタリング提案
-gemini --approval-mode plan --output-format text --cwd /path/to/project -p "技術的負債を特定し、リファクタリング計画を提案してください。確認や質問は不要です。具体的なコード例まで自主的に出力してください。"
-
-### デザイン相談（UI/UX）
-gemini --approval-mode plan --output-format text --cwd /path/to/project -p "あなたは世界トップクラスのUIデザイナーです。以下の観点からこのプロジェクトのUIを評価してください: (1) 視覚的階層構造とタイポグラフィ、(2) 余白・スペーシングのリズム、(3) カラーパレットのコントラストとアクセシビリティ、(4) インタラクションパターンの一貫性、(5) ユーザーの認知負荷の軽減。確認や質問は不要です。具体的な改善案をコード例付きで提示してください。"
-
-gemini --approval-mode plan --output-format text --cwd /path/to/project -p "UXリサーチャー兼デザイナーとして、このフォームのユーザビリティを分析してください。Nielsen の10ヒューリスティクスに基づき、(1) エラー防止の仕組み、(2) ユーザーの制御と自由度、(3) 一貫性と標準、(4) 認識vs記憶の負荷、(5) 柔軟性と効率性を評価してください。確認や質問は不要です。改善したTailwind CSSコードまで自主的に提示してください。"
+```bash
+cd /path/to/project && gemini --output-format text -p "技術的負債を特定し、リファクタリング計画を提案してください。確認や質問は不要です。具体的なコード例まで自主的に出力してください。"
+```
 
 ## 実行手順
 
 1. ユーザーから依頼内容を受け取る
 2. 対象プロジェクトのディレクトリを特定する（現在のワーキングディレクトリまたはユーザー指定）
 3. **プロンプトを作成する際、末尾に「確認や質問は不要です。具体的な提案まで自主的に出力してください。」を必ず追加する**
-4. 上記コマンド形式でGeminiを実行
-5. 結果をユーザーに報告
+4. 上記コマンド形式でGeminiを実行する（`plan` は使える環境のみ）
+5. 結果をユーザーに報告する
+
