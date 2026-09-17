@@ -17,12 +17,15 @@ PROJECTS = Path.home() / ".claude" / "projects"
 # session names.
 LIST_COMMANDS = {"ls", "--list"}
 WATCH_COMMANDS = {"watch"}
-RESERVED = LIST_COMMANDS | WATCH_COMMANDS
+SYNC_COMMANDS = {"sync"}
+STOP_COMMANDS = {"stop"}
+RESERVED = LIST_COMMANDS | WATCH_COMMANDS | SYNC_COMMANDS | STOP_COMMANDS
 
 ALL_FLAGS = {"-a", "--a", "--all"}
 DETAIL_FLAGS = {"-d", "--d", "--detail"}
 COLOR_FLAGS = {"-c", "--c", "--color", "--colour"}
 NO_COLOR_FLAGS = {"--no-color", "--no-colour"}
+YES_FLAGS = {"-y", "--yes"}
 
 WATCH_INTERVAL = "1"
 
@@ -33,10 +36,11 @@ def die(message: str, code: int = 1):
 
 
 def read_state() -> list[tuple[str, str, str]]:
-    # Lines are "name<TAB>kind<TAB>up|down". The third field is the last
-    # observed state, which is what --restore brings back; the second
-    # predates the third and the first predates both, from when this
-    # tool drove nothing but claude.
+    # Lines are "name<TAB>kind<TAB>up|down". The third field is what the
+    # session is meant to be doing, not what it is doing: this file is
+    # the source of truth that sync reconciles tmux against. The second
+    # field predates the third, and the first predates both, from when
+    # this tool drove nothing but claude.
     if not STATE.exists():
         return []
 
@@ -49,22 +53,22 @@ def read_state() -> list[tuple[str, str, str]]:
         fields = line.strip().split("\t")
         name = fields[0].strip()
         kind = (fields[1].strip() if len(fields) > 1 else "") or DEFAULT_KIND
-        seen = (fields[2].strip() if len(fields) > 2 else "") or "up"
+        want = (fields[2].strip() if len(fields) > 2 else "") or "up"
 
         if kind not in AGENTS:
             die(f"unknown agent kind in {STATE.name}: {name} -> {kind}")
 
-        if seen not in ("up", "down"):
-            die(f"unknown recorded state in {STATE.name}: {name} -> {seen}")
+        if want not in ("up", "down"):
+            die(f"unknown desired state in {STATE.name}: {name} -> {want}")
 
-        entries.append((name, kind, seen))
+        entries.append((name, kind, want))
 
     return entries
 
 
 def write_state(entries: list[tuple[str, str, str]]):
     STATE.write_text(
-        "".join(f"{name}\t{kind}\t{seen}\n" for name, kind, seen in entries)
+        "".join(f"{name}\t{kind}\t{want}\n" for name, kind, want in entries)
     )
 
 
@@ -74,24 +78,6 @@ def state_kind(entries, name: str) -> str | None:
             return kind
 
     return None
-
-
-def record(entries, live) -> list[tuple[str, str, str]]:
-    # live is None when tmux has no server at all, which is not the same
-    # as every session being down: after a reboot it would otherwise
-    # overwrite the very record --restore exists to read back.
-    if live is None:
-        return entries
-
-    updated = [
-        (name, kind, "up" if name in live else "down")
-        for name, kind, _ in entries
-    ]
-
-    if updated != entries:
-        write_state(updated)
-
-    return updated
 
 
 def register(name: str, kind: str):
@@ -389,7 +375,7 @@ def ensure(name: str, kind: str, by_name, attach: bool):
 
 
 def restore(show_all: bool = False):
-    entries = record(read_state(), tmux_live())
+    entries = read_state()
     names = [name for name, _, _ in entries]
 
     duplicates = [
@@ -408,19 +394,19 @@ def restore(show_all: bool = False):
 
         raise SystemExit(1)
 
-    # Only what was up when amux last looked. A name that is recorded
-    # down was not running then, so bringing it back would be inventing
-    # a state rather than restoring one.
+    # Only what the file asks for. A name marked down is meant to stay
+    # down, so starting it would be overruling the file rather than
+    # applying it.
     wanted = [
         (name, kind)
-        for name, kind, seen in entries
-        if show_all or seen == "up"
+        for name, kind, want in entries
+        if show_all or want == "up"
     ]
 
     skipped = len(entries) - len(wanted)
 
     if skipped:
-        print(f"skipped: {skipped} recorded down (--all to start them)")
+        print(f"skipped: {skipped} marked down (--all to start them)")
 
     resumable = [
         name for name, kind in wanted if AGENTS[kind]["resumable"]
@@ -546,8 +532,8 @@ def rename(old: str, new: str):
         print(f"tmux:    {old} -> {new}")
 
     write_state([
-        (new if name == old else name, entry_kind, seen)
-        for name, entry_kind, seen in entries
+        (new if name == old else name, entry_kind, want)
+        for name, entry_kind, want in entries
     ])
     print(f"state:   {old} -> {new}")
 
@@ -575,8 +561,9 @@ def list_names(show_all: bool, detail: bool):
     # rather than exposing the state file's registration order.
     live = tmux_live()
 
-    # Listing is also the observation --restore reads back later.
-    entries = sorted(record(entries, live))
+    # Read-only: the file says what should be running, and listing is
+    # not a statement of intent.
+    entries = sorted(entries)
 
     seen = live or {}
     running = tmux_running(
@@ -635,6 +622,95 @@ def list_names(show_all: bool, detail: bool):
         ))
 
 
+def kill_tmux(name: str):
+    subprocess.run(
+        ["tmux", "kill-session", "-t", f"={name}"],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+
+
+def sync(assume_yes: bool):
+    entries = read_state()
+    live = tmux_live()
+
+    if live is None:
+        die("tmux is not running, so there is nothing to reconcile")
+
+    declared = {name for name, _, _ in entries}
+
+    to_start = [
+        (name, kind)
+        for name, kind, want in entries
+        if want == "up" and name not in live
+    ]
+    to_stop = [
+        name
+        for name, _, want in entries
+        if want == "down" and name in live
+    ]
+    # Sessions nobody declared are left alone. amux drives what the file
+    # names and nothing else.
+    untracked = sorted(name for name in live if name not in declared)
+
+    for name, kind in to_start:
+        print(f"start:   {name} ({kind})")
+
+    for name in to_stop:
+        print(f"stop:    {name}")
+
+    if untracked:
+        # One line, not one per session: on this machine the undeclared
+        # ones outnumber the declared ones and would bury the plan.
+        print(f"ignored: {len(untracked)} not in {STATE.name}")
+
+    if not to_start and not to_stop:
+        print("in sync")
+        return
+
+    if to_stop and not assume_yes:
+        # Killing a session takes its scrollback with it, so say what
+        # will happen before doing it.
+        if not sys.stdin.isatty():
+            die("refusing to stop sessions without a tty; pass --yes")
+
+        answer = input(f"stop {len(to_stop)} session(s)? [y/N] ")
+
+        if answer.strip().lower() not in ("y", "yes"):
+            print("aborted")
+            return
+
+    for name in to_stop:
+        kill_tmux(name)
+        print(f"stopped: {name}")
+
+    if to_start:
+        resumable = [
+            name for name, kind in to_start if AGENTS[kind]["resumable"]
+        ]
+        by_name = group_sessions(get_sessions()) if resumable else {}
+
+        for name, kind in to_start:
+            ensure(name, kind, by_name, attach=False)
+
+
+def stop(name: str):
+    entries = read_state()
+
+    if name not in {entry[0] for entry in entries}:
+        die(f"not registered: {name}")
+
+    write_state([
+        (entry_name, kind, "down" if entry_name == name else want)
+        for entry_name, kind, want in entries
+    ])
+    print(f"state:   {name} -> down")
+
+    if tmux_exists(name):
+        kill_tmux(name)
+        print(f"stopped: {name}")
+
+
 def watch(rest: list[str]):
     # watch joins its trailing arguments and hands them to a shell, so
     # the path is quoted rather than trusted to be free of spaces.
@@ -654,6 +730,8 @@ def usage():
     print(
         f"""usage:
   {sys.argv[0]} NAME [--claude|--codex|--gemini]
+  {sys.argv[0]} sync [--yes]
+  {sys.argv[0]} stop NAME
   {sys.argv[0]} --restore [--all]
   {sys.argv[0]} ls [--all] [--detail] [--color|--no-color]
   {sys.argv[0]} watch [--all] [--detail]
@@ -670,6 +748,20 @@ def main():
     COLOR = color_enabled()
 
     args = sys.argv[1:]
+
+    if args and args[0] in SYNC_COMMANDS:
+        rest = args[1:]
+
+        if all(arg in YES_FLAGS for arg in rest):
+            sync(assume_yes=bool(rest))
+            return
+
+        usage()
+        raise SystemExit(2)
+
+    if len(args) == 2 and args[0] in STOP_COMMANDS:
+        stop(args[1])
+        return
 
     if args and args[0] in WATCH_COMMANDS:
         rest = args[1:]
