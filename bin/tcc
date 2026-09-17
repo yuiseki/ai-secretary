@@ -69,6 +69,74 @@ def tmux_exists(name: str) -> bool:
     ).returncode == 0
 
 
+# Claude Code holds the alternate screen for its whole lifetime, and
+# puts "esc to interrupt" in its footer only while a turn is in flight.
+# Both are cheaper and more honest than parsing the session jsonl, whose
+# tail reports "generating" for sessions that are plainly idle.
+RUNNING_MARKER = "esc to interrupt"
+CAPTURE_SEP = "<<<tcc-pane-sep>>>"
+
+
+def tmux_live() -> dict[str, bool]:
+    # name -> whether Claude still owns the pane (alternate screen on).
+    result = subprocess.run(
+        ["tmux", "list-sessions", "-F", "#{session_name}\t#{alternate_on}"],
+        capture_output=True,
+        text=True,
+    )
+
+    if result.returncode != 0:
+        return {}
+
+    live = {}
+
+    for line in result.stdout.splitlines():
+        name, _, alternate = line.rpartition("\t")
+
+        if name:
+            live[name] = alternate == "1"
+
+    return live
+
+
+def tmux_running(names: list[str]) -> dict[str, bool]:
+    # One tmux invocation for every pane, with a separator after each so
+    # the concatenated output can be split back apart.
+    if not names:
+        return {}
+
+    args = []
+
+    for name in names:
+        # "=name:" is required: a bare "name:" matches by prefix, so
+        # asking for pi4-de would answer about pi4-deck.
+        args += ["capture-pane", "-p", "-t", f"={name}:", ";"]
+        args += ["display-message", "-p", CAPTURE_SEP, ";"]
+
+    result = subprocess.run(
+        ["tmux", *args],
+        capture_output=True,
+        text=True,
+    )
+
+    panes = result.stdout.split(CAPTURE_SEP)[:-1]
+
+    if len(panes) != len(names):
+        # A pane went away mid-capture; don't guess which.
+        return {}
+
+    running = {}
+
+    for name, pane in zip(names, panes):
+        lines = [line for line in pane.splitlines() if line.strip()]
+
+        # Only the footer counts. A message quoting the marker would
+        # otherwise read as a running session.
+        running[name] = bool(lines) and RUNNING_MARKER in lines[-1]
+
+    return running
+
+
 def get_sessions():
     # Imported lazily: the SDK costs ~0.7s to import, which is most of
     # the runtime of commands that never touch Claude state.
@@ -310,16 +378,30 @@ def list_names(show_all: bool, detail: bool):
 
     # tmux ls sorts by session name, so do the same here
     # rather than exposing .cc-state's registration order.
-    rows = [
-        (name, "up" if tmux_exists(name) else "down")
-        for name in sorted(names)
-    ]
+    names = sorted(names)
+
+    live = tmux_live()
+    running = tmux_running(
+        [name for name in names if live.get(name)]
+    )
+
+    def status(name: str) -> str:
+        if name not in live:
+            return "down"
+
+        if not live[name]:
+            # tmux session outlived the Claude process in it.
+            return "dead"
+
+        return "run" if running.get(name) else "idle"
+
+    rows = [(name, status(name)) for name in names]
 
     if not show_all:
-        rows = [row for row in rows if row[1] == "up"]
+        rows = [row for row in rows if row[1] != "down"]
 
     if not rows:
-        print("no running sessions (use --all to see down ones)")
+        print("no live sessions (use --all to see down ones)")
         return
 
     # The session id only matters when you are about to act on it,
@@ -328,13 +410,13 @@ def list_names(show_all: bool, detail: bool):
 
     width = max(len(name) for name, _ in rows)
 
-    for name, tmux in rows:
+    for name, state in rows:
         if by_name is None:
-            print(f"{name.ljust(width)}  {tmux}")
+            print(f"{name.ljust(width)}  {state}")
         else:
             print(
                 f"{name.ljust(width)}"
-                f"  {tmux.ljust(4)}"
+                f"  {state.ljust(4)}"
                 f"  {describe(name, by_name)}"
             )
 
