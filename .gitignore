@@ -5,12 +5,17 @@
 
 .amem/
 
+node_modules/
+.pnpm-store/
+
 .playwright-cli/
 __pycache__/
 
 .env
 .cc-state
+.cc-state*
 
+.config/
 .cookie/
 .cookies/
 .secret/
