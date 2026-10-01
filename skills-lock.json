@@ -77,6 +77,12 @@
       "sourceType": "github",
       "skillPath": "skills/video-editing/SKILL.md",
       "computedHash": "f44c45ed71dec68cf955a316577ddd191248d0c607118c89ffc10f9f3f1ea3a0"
+    },
+    "yomiyasu": {
+      "source": "nanaism/yomiyasu",
+      "sourceType": "github",
+      "skillPath": "SKILL.md",
+      "computedHash": "c13f52c0943b5fc780ab262414a112990bd591e571d99fab8c3caae3d1660465"
     }
   }
 }
