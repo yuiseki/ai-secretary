@@ -1,6 +1,12 @@
 {
   "version": 1,
   "skills": {
+    "consulting-pptx-skill": {
+      "source": "carnot-tech/consulting-pptx-skill",
+      "sourceType": "github",
+      "skillPath": "SKILL.md",
+      "computedHash": "68a5cffdf9f032d51df5d44f8dec284ce3b30f5f4614cc4b2d8a3cca29e5918c"
+    },
     "maplibre-cartography": {
       "source": "maplibre/maplibre-agent-skills",
       "sourceType": "github",
