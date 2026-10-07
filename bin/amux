@@ -137,7 +137,11 @@ CLAUDE_MARKER = re.compile(r"esc to interrupt")
 # shell it started has not finished, so the session is neither working
 # nor free.
 CLAUDE_WAIT_MARKER = re.compile(r"\b\d+ shells?\b")
-CODEX_MARKER = re.compile(r"\(\d+s.{0,3}esc to interrupt\)")
+CODEX_MARKER = re.compile(r"\((?:\d+h )?(?:\d+m )?\d+s.{0,3}esc to interrupt\)")
+CODEX_WAIT_MARKER = re.compile(r"^\s*•?\s*Waiting for\b")
+CODEX_BACKGROUND_MARKER = re.compile(
+    r"^\s*[1-9]\d* background terminals? running\b"
+)
 GEMINI_MARKER = re.compile(r"\(esc to cancel,\s*\d+s\)")
 
 
@@ -160,8 +164,18 @@ def state_codex(lines: list[str]) -> str:
     # "Working (5s - esc to interrupt)", third line from the bottom.
     # Startup draws the same form while booting MCP servers, which is
     # also busy, so both count.
-    if any(CODEX_MARKER.search(line) for line in lines[-TAIL_LINES:]):
-        return "run"
+    tail = lines[-TAIL_LINES:]
+    active = [line for line in tail if CODEX_MARKER.search(line)]
+
+    if active:
+        # Waiting headers also appear in transcript history. Only a live
+        # elapsed/interrupt indicator makes one evidence of current wait.
+        return "wait" if CODEX_WAIT_MARKER.search(active[-1]) else "run"
+
+    # After a turn completes, its background terminals may remain running.
+    # The dedicated footer starts with the count; transcript prose does not.
+    if any(CODEX_BACKGROUND_MARKER.search(line) for line in tail):
+        return "wait"
 
     return "idle"
 
@@ -208,10 +222,12 @@ def find_claude(name: str, by_name) -> str | None:
 
 
 def find_codex(name: str, by_name) -> str | None:
-    # codex resume takes the thread name itself, so finding the entry is
-    # only about knowing whether there is one to resume.
+    # Prefer the latest index entry: Codex appends a new row when a thread
+    # is renamed, so older names can otherwise resume the wrong identity.
     if not CODEX_INDEX.exists():
         return None
+
+    found = None
 
     for line in CODEX_INDEX.read_text().splitlines():
         try:
@@ -219,10 +235,10 @@ def find_codex(name: str, by_name) -> str | None:
         except ValueError:
             continue
 
-        if entry.get("thread_name") == name:
-            return name
+        if entry.get("thread_name") == name and entry.get("id"):
+            found = entry["id"]
 
-    return None
+    return found
 
 
 def find_gemini(name: str, by_name) -> str | None:
