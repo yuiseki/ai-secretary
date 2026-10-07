@@ -61,9 +61,9 @@ class ClaudeStateTests(unittest.TestCase):
         )
         self.assertEqual(amux.state_claude(lines), "run")
 
-    def test_new_task_hint_is_idle_despite_shell(self):
-        # A days-long rsync keeps "1 shell" up, but claude itself offers a
-        # new task, so the session is free.
+    def test_new_task_hint_does_not_hide_a_running_shell(self):
+        # A days-long rsync keeps "1 shell" up while claude offers a new
+        # task; the rsync is the work, so the session is not free.
         lines = [
             "✻ Sautéed for 3m 6s · done 1:58 AM · 1 shell still running",
             "                    new task? /clear to save 598.6k tokens",
@@ -71,6 +71,17 @@ class ClaudeStateTests(unittest.TestCase):
             "❯ ",
             BOTTOM,
             "  ⏵⏵ auto mode on · 1 shell · ← 1 agent · ↓ to manage",
+        ]
+        self.assertEqual(amux.state_claude(lines), "wait")
+
+    def test_new_task_hint_without_shell_is_idle(self):
+        lines = [
+            "✻ Churned for 5m 57s · done 4:25 PM",
+            "                    new task? /clear to save 701.7k tokens",
+            TOP,
+            "❯ ",
+            BOTTOM,
+            "  ⏵⏵ auto mode on (shift+tab to cycle) · ← 1 agent",
         ]
         self.assertEqual(amux.state_claude(lines), "idle")
 
