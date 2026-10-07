@@ -133,13 +133,18 @@ def tmux_exists(name: str) -> bool:
 TAIL_LINES = 10
 
 CLAUDE_MARKER = re.compile(r"esc to interrupt")
-# "auto mode on - 1 shell - <- 1 agent": the turn is over but a
-# background shell or agent it started has not finished, so the session
-# is neither working nor free.
-CLAUDE_WAIT_MARKER = re.compile(r"\b\d+ (?:shells?|agents?)\b")
+# "auto mode on - 1 shell": the turn is over but a background shell it
+# started has not finished, so the session is neither working nor free.
+# The "<- 1 agent" next to it is drawn by idle sessions too.
+CLAUDE_WAIT_MARKER = re.compile(r"\b\d+ shells?\b")
+# Drawn just above the input box once a turn is over. A shell left
+# running for days (a mirror, say) does not stop claude offering it, and
+# the session is then free.
+CLAUDE_IDLE_HINT = re.compile(r"^\s*new task\? /clear to save\b")
 # The input box's bottom edge is a bare rule; the top edge carries the
 # session name.
 CLAUDE_BOX_EDGE = re.compile(r"^─+$")
+CLAUDE_BOX_TOP = re.compile(r"^─+ \S.* ─$")
 CODEX_MARKER = re.compile(r"\((?:\d+h )?(?:\d+m )?\d+s.{0,3}esc to interrupt\)")
 CODEX_WAIT_MARKER = re.compile(r"^\s*•?\s*Waiting for\b")
 CODEX_BACKGROUND_MARKER = re.compile(
@@ -162,6 +167,10 @@ def state_claude(lines: list[str]) -> str:
 
     if CLAUDE_MARKER.search(footer):
         return "run"
+
+    tops = [i for i, line in enumerate(lines) if CLAUDE_BOX_TOP.match(line.strip())]
+    if tops and tops[-1] > 0 and CLAUDE_IDLE_HINT.search(lines[tops[-1] - 1]):
+        return "idle"
 
     if CLAUDE_WAIT_MARKER.search(footer):
         return "wait"
