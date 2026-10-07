@@ -133,10 +133,13 @@ def tmux_exists(name: str) -> bool:
 TAIL_LINES = 10
 
 CLAUDE_MARKER = re.compile(r"esc to interrupt")
-# "auto mode on - 1 shell - 1 agent": the turn is over but a background
-# shell it started has not finished, so the session is neither working
-# nor free.
-CLAUDE_WAIT_MARKER = re.compile(r"\b\d+ shells?\b")
+# "auto mode on - 1 shell - <- 1 agent": the turn is over but a
+# background shell or agent it started has not finished, so the session
+# is neither working nor free.
+CLAUDE_WAIT_MARKER = re.compile(r"\b\d+ (?:shells?|agents?)\b")
+# The input box's bottom edge is a bare rule; the top edge carries the
+# session name.
+CLAUDE_BOX_EDGE = re.compile(r"^─+$")
 CODEX_MARKER = re.compile(r"\((?:\d+h )?(?:\d+m )?\d+s.{0,3}esc to interrupt\)")
 CODEX_WAIT_MARKER = re.compile(r"^\s*•?\s*Waiting for\b")
 CODEX_BACKGROUND_MARKER = re.compile(
@@ -149,7 +152,13 @@ def state_claude(lines: list[str]) -> str:
     if not lines:
         return "idle"
 
-    footer = lines[-1]
+    # The status line sits right under the input box. It is usually the
+    # last line, but background agents list themselves beneath it.
+    edges = [i for i, line in enumerate(lines) if CLAUDE_BOX_EDGE.match(line.strip())]
+    if edges and edges[-1] + 1 < len(lines):
+        footer = lines[edges[-1] + 1]
+    else:
+        footer = lines[-1]
 
     if CLAUDE_MARKER.search(footer):
         return "run"
