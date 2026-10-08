@@ -17,6 +17,8 @@
 ## amux
 
 `bin/amux ls` / `bin/amux watch` でエージェントの状態を確認できます。
+各行の先頭のアイコンは状態を表します。
+`◐` は run、`◔` は wait、`○` は idle、`×` は dead (エージェントが終了)、`·` は down (tmux セッションが無い) です。
 Claude は入力欄の直下のステータス行で判定し、`esc to interrupt` があれば `run`、
 ターン終了後もバックグラウンドのシェルが動いていれば `wait`、それ以外を `idle` と表示します。
 入力欄の上の `new task? /clear to save` は文脈が大きいという意味だけなので、判定には使いません。

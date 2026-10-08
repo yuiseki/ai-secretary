@@ -432,6 +432,24 @@ def color_enabled(force: bool | None = None) -> bool:
     return sys.stdout.isatty()
 
 
+# One glyph per agent state at the head of each row, after herdr's
+# symbol style (src/client/shell.rs status_icon): a half disc while
+# working, an empty ring when free. herdr has no state for a finished
+# turn whose background shell still runs, so wait is a quarter disc,
+# busy but less so than run.
+STATUS_ICONS = {
+    "run": "◐",
+    "wait": "◔",
+    "idle": "○",
+    "dead": "×",
+    "-": "·",
+}
+
+
+def status_icon(state: str) -> str:
+    return STATUS_ICONS.get(state, "·")
+
+
 def paint(text: str, key: str, width: int = 0) -> str:
     padded = text.ljust(width)
 
@@ -837,7 +855,13 @@ def list_names(show_all: bool, detail: bool):
     kind_width = max(len(kind) for _, kind, _, _ in rows)
 
     for name, kind, tmux, state in rows:
-        cells = [(name, None), (kind, kind), (tmux, tmux), (state, state)]
+        cells = [
+            (status_icon(state), state),
+            (name, None),
+            (kind, kind),
+            (tmux, tmux),
+            (state, state),
+        ]
 
         if by_name is not None:
             described = describe(name, kind, by_name)
@@ -846,7 +870,7 @@ def list_names(show_all: bool, detail: bool):
                 "warn" if described.startswith("duplicate") else "dim",
             ))
 
-        widths = [width, kind_width, 4, 4, 0]
+        widths = [1, width, kind_width, 4, 4, 0]
 
         print("  ".join(
             # The last cell is not padded, so nothing trails the line.
