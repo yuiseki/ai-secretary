@@ -33,6 +33,14 @@ class ClaudeStateTests(unittest.TestCase):
         lines = screen("  ⏵⏵ auto mode on · 1 shell")
         self.assertEqual(amux.state_claude(lines), "wait")
 
+    def test_monitor_footer_is_wait(self):
+        lines = screen("  ⏵⏵ auto mode on · 1 monitor · ← 1 agent · ↓ to manage")
+        self.assertEqual(amux.state_claude(lines), "wait")
+
+    def test_shell_and_monitor_footer_is_wait(self):
+        lines = screen("  ⏵⏵ auto mode on · 1 shell · 2 monitors")
+        self.assertEqual(amux.state_claude(lines), "wait")
+
     def test_plain_footer_is_idle(self):
         lines = screen("  ⏵⏵ auto mode on (shift+tab to cycle)")
         self.assertEqual(amux.state_claude(lines), "idle")
