@@ -7,6 +7,7 @@ import json
 import os
 import re
 import shlex
+import sqlite3
 import subprocess
 import sys
 import time
@@ -126,7 +127,7 @@ def tmux_exists(name: str) -> bool:
 # "generating" for claude sessions that were plainly idle.
 #
 # The marker is per kind because each CLI puts it somewhere different:
-# claude's is the footer line itself, while codex and gemini draw their
+# claude's is the footer line itself, while codex, gemini and agy draw their
 # input box and status bar underneath theirs. Matching the whole
 # rendered form, timer included, keeps a message that merely quotes the
 # words from reading as a running session.
@@ -148,6 +149,19 @@ CODEX_BACKGROUND_MARKER = re.compile(
     r"^\s*[1-9]\d* background terminals? running\b"
 )
 GEMINI_MARKER = re.compile(r"\(esc to cancel,\s*\d+s\)")
+
+# agy (Antigravity CLI) draws a spinner line over its input box and
+# puts the key hint in the last line: "esc to cancel" while busy,
+# "? for shortcuts" when free, with " - 1 task(s) - /tasks" appended
+# while a background command it started still runs. Unlike the others
+# that hint is not enough on its own: the slash-command popup and the
+# permission prompt both say "esc to cancel" with nothing working.
+AGY_BUSY_FOOTER = re.compile(r"^esc to cancel\b")
+AGY_TASKS_FOOTER = re.compile(r"\b\d+ tasks?\(s\) · /tasks\s*$")
+AGY_SPINNER = re.compile(r"^[\u2800-\u28ff]\s+\S")
+AGY_RULE = re.compile(r"^─{10,}$")
+AGY_PERMISSION = "Requesting permission for:"
+AGY_TRUST = "Do you trust the contents of this project?"
 
 
 def state_claude(lines: list[str]) -> str:
@@ -199,6 +213,44 @@ def state_gemini(lines: list[str]) -> str:
     return "idle"
 
 
+def state_agy(lines: list[str]) -> str:
+    if not lines:
+        return "idle"
+
+    footer = lines[-1].strip()
+    tail = [line.strip() for line in lines[-TAIL_LINES:]]
+
+    if AGY_BUSY_FOOTER.search(footer):
+        # A person is needed, not the model. Exact line, so a message
+        # that merely quotes it does not count.
+        if AGY_PERMISSION in tail:
+            return "wait"
+
+        # The spinner sits just above the input box's top rule, and
+        # background task rows below the box push the footer away, so
+        # find the box rather than counting up from the bottom.
+        stripped = [line.strip() for line in lines]
+        tops = [
+            i for i in range(len(stripped) - 1)
+            if AGY_RULE.match(stripped[i]) and stripped[i + 1].startswith(">")
+        ]
+
+        if tops and any(
+            AGY_SPINNER.match(line) for line in stripped[max(tops[-1] - 3, 0):tops[-1]]
+        ):
+            return "run"
+
+        return "idle"
+
+    if AGY_TRUST in tail and not footer.startswith("? for shortcuts"):
+        return "wait"
+
+    if AGY_TASKS_FOOTER.search(footer):
+        return "wait"
+
+    return "idle"
+
+
 # Resuming means three different things. claude is told a session id it
 # minted; codex is told a thread name, which amux sets with /rename
 # because codex otherwise names threads after their first prompt; gemini
@@ -216,6 +268,17 @@ CODEX_TRUST_PROMPT = "Continue without trusting"
 CODEX_TRUST_ALL = "2"
 CODEX_TRUST_ENV = "AMUX_TRUST_HOOKS"
 CODEX_READY_TIMEOUT = 30
+
+# agy keeps what it calls conversations in per-id databases, and a
+# summary row for each, whose title is what /rename sets. That row is
+# the only place a name maps to an id.
+AGY_SUMMARIES = (
+    Path.home() / ".gemini" / "antigravity-cli" / "conversation_summaries.db"
+)
+AGY_READY = "? for shortcuts"
+AGY_RENAMED = "Conversation renamed to"
+AGY_READY_TIMEOUT = 30
+AGY_CONFIRM_POLLS = 6
 
 
 def gemini_session_id(name: str) -> str:
@@ -265,6 +328,32 @@ def find_gemini(name: str, by_name) -> str | None:
     )
 
     return session_id if glob.glob(pattern) else None
+
+
+def find_agy(name: str, by_name) -> str | None:
+    # Untitled conversations are stored with an empty title, which
+    # would match an empty name.
+    if not name or not AGY_SUMMARIES.exists():
+        return None
+
+    # Read-only: agy has the database open and amux is only looking.
+    try:
+        db = sqlite3.connect(f"file:{AGY_SUMMARIES}?mode=ro", uri=True)
+    except sqlite3.Error:
+        return None
+
+    try:
+        row = db.execute(
+            "SELECT conversation_id FROM conversation_summaries"
+            " WHERE title = ? ORDER BY last_modified_time DESC LIMIT 1",
+            (name,),
+        ).fetchone()
+    except sqlite3.Error:
+        return None
+    finally:
+        db.close()
+
+    return row[0] if row else None
 
 
 def send_keys(name: str, *keys: str, literal: bool = False):
@@ -355,6 +444,64 @@ def after_start_codex(name: str, resumed: bool) -> bool:
     return False
 
 
+def after_start_agy(name: str, resumed: bool) -> bool:
+    # Same shape as codex: wait for the composer, then /rename, because
+    # agy titles conversations after their first prompt otherwise and
+    # find_agy could never find this one again.
+    deadline = time.monotonic() + AGY_READY_TIMEOUT
+
+    while time.monotonic() < deadline:
+        pane = capture_pane(name)
+
+        if AGY_TRUST in pane and AGY_READY not in pane:
+            # Trusting a folder is the user's call, not amux's.
+            print(
+                f"WARNING: {name}: agy is asking whether to trust this"
+                f" folder. Attach and answer it once."
+            )
+            return False
+
+        if AGY_READY in pane:
+            break
+
+        time.sleep(0.5)
+    else:
+        print(f"WARNING: {name}: agy did not reach its composer")
+        return False
+
+    if resumed:
+        # The conversation already carries the name that found it.
+        return True
+
+    # Right after start the footer is up before agy reads the keyboard,
+    # and for a while longer before there is a conversation to rename
+    # ("no active conversation"). Neither leaves much of a trace, so
+    # try until the confirmation shows. Every round clears the line
+    # first, in case an earlier attempt lands late and would double up.
+    deadline = time.monotonic() + AGY_READY_TIMEOUT
+
+    while time.monotonic() < deadline:
+        send_keys(name, "C-u")
+        send_keys(name, f"/rename {name}", literal=True)
+
+        # The slash-command popup is open the instant the text lands.
+        time.sleep(1.0)
+
+        if f"/rename {name}" not in capture_pane(name):
+            continue
+
+        send_keys(name, "Enter")
+
+        for _ in range(AGY_CONFIRM_POLLS):
+            time.sleep(0.5)
+
+            if AGY_RENAMED in capture_pane(name):
+                return True
+
+    print(f"WARNING: {name}: /rename not confirmed, resume may not find it")
+    return False
+
+
 AGENTS = {
     "claude": {
         "state": state_claude,
@@ -388,6 +535,19 @@ AGENTS = {
         ),
         "sdk": False,
     },
+    # Gemini CLI was folded into agy. --mode auto is the counterpart of
+    # claude's --permission-mode auto: file edits go through, shell
+    # commands still ask.
+    "agy": {
+        "state": state_agy,
+        "find": find_agy,
+        "new": lambda name: "agy --mode auto",
+        "resume": lambda name, token: (
+            f"agy --mode auto --conversation {shlex.quote(token)}"
+        ),
+        "after_start": after_start_agy,
+        "sdk": False,
+    },
 }
 
 DEFAULT_KIND = "claude"
@@ -406,6 +566,7 @@ COLORS = {
     "claude": "\033[35m",
     "codex": "\033[34m",
     "gemini": "\033[32m",
+    "agy": "\033[33m",
     "-": "\033[90m",
     "dim": "\033[90m",
     "warn": "\033[1;31m",
@@ -987,7 +1148,7 @@ def watch(rest: list[str]):
 def usage():
     print(
         f"""usage:
-  {sys.argv[0]} [--claude|--codex|--gemini] NAME
+  {sys.argv[0]} [--claude|--codex|--gemini|--agy] NAME
   {sys.argv[0]} sync [--yes]
   {sys.argv[0]} stop NAME
   {sys.argv[0]} --restore [--all]
