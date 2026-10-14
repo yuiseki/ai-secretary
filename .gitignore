@@ -31,3 +31,6 @@ nippo/
 node_modules/
 
 remotion-*
+
+# Antigravity CLI: symlink to a per-machine project file under ~/.gemini
+.antigravitycli/
