@@ -1,0 +1,7 @@
+{
+  "amem": {
+    "SessionStart": [
+      {"type": "command", "command": "./amem-hook.sh", "timeout": 20}
+    ]
+  }
+}
