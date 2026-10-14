@@ -120,7 +120,7 @@ class AgyStateTests(unittest.TestCase):
 
     def test_permission_prompt_is_wait(self):
         # Its footer says "esc to cancel" too, but a person is needed.
-        self.assertEqual(amux.state_agy(PERMISSION), "wait")
+        self.assertEqual(amux.state_agy(PERMISSION), "ask")
 
     def test_slash_popup_is_idle(self):
         # The popup puts "esc to cancel" in the footer with nothing
@@ -128,7 +128,7 @@ class AgyStateTests(unittest.TestCase):
         self.assertEqual(amux.state_agy(SLASH_POPUP), "idle")
 
     def test_trust_dialog_is_wait(self):
-        self.assertEqual(amux.state_agy(TRUST), "wait")
+        self.assertEqual(amux.state_agy(TRUST), "ask")
 
     def test_transcript_mentions_are_ignored(self):
         lines = [

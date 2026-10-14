@@ -133,6 +133,10 @@ def tmux_exists(name: str) -> bool:
 # words from reading as a running session.
 TAIL_LINES = 10
 
+# Permission prompts, the folder trust dialog and AskUserQuestion all end
+# in a capitalised "Esc to cancel" hint; the busy hint is lowercase.
+CLAUDE_ASK_MARKER = re.compile(r"\bEsc to cancel\b")
+CODEX_ASK_MARKER = re.compile(r"Press enter to confirm or esc to cancel")
 CLAUDE_MARKER = re.compile(r"esc to interrupt")
 # "auto mode on - 1 shell" or "- 1 monitor": the turn is over but a
 # background shell or Monitor it started has not finished, so the
@@ -168,6 +172,11 @@ def state_claude(lines: list[str]) -> str:
     if not lines:
         return "idle"
 
+    # A dialog replaces the input box, so there is no box edge to anchor
+    # on; its key hint is the last line.
+    if CLAUDE_ASK_MARKER.search(lines[-1]):
+        return "ask"
+
     # The status line sits right under the input box. It is usually the
     # last line, but background agents list themselves beneath it.
     edges = [i for i, line in enumerate(lines) if CLAUDE_BOX_EDGE.match(line.strip())]
@@ -190,6 +199,10 @@ def state_codex(lines: list[str]) -> str:
     # Startup draws the same form while booting MCP servers, which is
     # also busy, so both count.
     tail = lines[-TAIL_LINES:]
+
+    if tail and CODEX_ASK_MARKER.search(tail[-1]):
+        return "ask"
+
     active = [line for line in tail if CODEX_MARKER.search(line)]
 
     if active:
@@ -224,7 +237,7 @@ def state_agy(lines: list[str]) -> str:
         # A person is needed, not the model. Exact line, so a message
         # that merely quotes it does not count.
         if AGY_PERMISSION in tail:
-            return "wait"
+            return "ask"
 
         # The spinner sits just above the input box's top rule, and
         # background task rows below the box push the footer away, so
@@ -243,7 +256,7 @@ def state_agy(lines: list[str]) -> str:
         return "idle"
 
     if AGY_TRUST in tail and not footer.startswith("? for shortcuts"):
-        return "wait"
+        return "ask"
 
     if AGY_TASKS_FOOTER.search(footer):
         return "wait"
@@ -562,6 +575,7 @@ COLORS = {
     "run": "\033[1;33m",
     "idle": "\033[36m",
     "wait": "\033[1;34m",
+    "ask": "\033[1;95m",
     "dead": "\033[1;31m",
     "claude": "\033[35m",
     "codex": "\033[34m",
@@ -598,10 +612,12 @@ def color_enabled(force: bool | None = None) -> bool:
 # symbol style (src/client/shell.rs status_icon): a half disc while
 # working, an empty ring when free. herdr has no state for a finished
 # turn whose background shell still runs, so wait is a quarter disc,
-# busy but less so than run.
+# busy but less so than run. ask is a filled diamond: nothing is running
+# and a person is needed.
 STATUS_ICONS = {
     "run": "◐",
     "wait": "◔",
+    "ask": "◆",
     "idle": "○",
     "dead": "×",
     "-": "·",

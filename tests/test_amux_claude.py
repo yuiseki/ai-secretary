@@ -119,5 +119,25 @@ class ClaudeStateTests(unittest.TestCase):
         self.assertEqual(amux.state_claude([]), "idle")
 
 
+PERMISSION = [' ▐▛███▛█   Claude Code v2.1.299', '▝▜██████▀  Sonnet 5.5 · Claude Team', ' ▝▝   ▝▝   /…/-Workspaces/4b3c36b7-28ed-4d01-8777-e0b500ad3057/scratchpad/askprobe', '❯ Run the bash command: date > out.txt . Do nothing else.', '● Writing current date to out.txt', '  ⎿  $ date > out.txt', '───────────────────────────────────────────────────────────────────────────────────────', ' Bash command', ' Tip: auto mode handles these prompts for you — choose "switch to auto mode" below', ' Write current date to out.txt', '╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌', ' date > out.txt', '╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌', ' Do you want to proceed?', ' ❯ 1. Yes', '   2. Yes, and always allow access to /tmp/claude-1000/-Workspaces/4b3c36b7-28ed-4d01-8', '      777-e0b500ad3057/scratchpad/askprobe from this project', '   3. Yes, and switch to auto mode · auto mode handles these prompts for you', '   4. No', ' Esc to cancel · Tab to amend']
+
+TRUST = ['───────────────────────────────────────────────────────────────────────────────────────', ' Accessing workspace:', ' /tmp/claude-1000/-Workspaces/4b3c36b7-28ed-4d01-8777-e0b500ad3057/scratchpad/askprobe', ' Quick safety check: Is this a project you created or one you trust? (Like your own', ' code, a well-known open source project, or work from your team). If not, take a', " moment to review what's in this folder first.", " Claude Code'll be able to read, edit, and execute files here.", ' Security guide', ' ❯ No, exit', '   Yes, I trust this folder', ' Enter to confirm · Esc to cancel']
+
+
+class ClaudeAskTests(unittest.TestCase):
+    def test_permission_prompt_is_ask(self):
+        self.assertEqual(amux.state_claude(PERMISSION), "ask")
+
+    def test_folder_trust_dialog_is_ask(self):
+        self.assertEqual(amux.state_claude(TRUST), "ask")
+
+    def test_question_dialog_is_ask(self):
+        lines = ["☐ Pick one", "❯ 1. A", "  2. B", " Enter to select · ↑/↓ to navigate · Esc to cancel"]
+        self.assertEqual(amux.state_claude(lines), "ask")
+
+    def test_icon_is_filled_diamond(self):
+        self.assertEqual(amux.status_icon("ask"), "◆")
+
+
 if __name__ == "__main__":
     unittest.main()

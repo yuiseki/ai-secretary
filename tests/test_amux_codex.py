@@ -107,5 +107,11 @@ class CodexStateTests(unittest.TestCase):
                 self.assertEqual(amux.state_codex(lines), "idle")
 
 
+class CodexAskTests(unittest.TestCase):
+    def test_approval_prompt_is_ask(self):
+        lines = ["Would you like to run the following command?", "› 1. Yes, proceed (y)", "  Press enter to confirm or esc to cancel"]
+        self.assertEqual(amux.state_codex(lines), "ask")
+
+
 if __name__ == "__main__":
     unittest.main()
