@@ -112,8 +112,8 @@
     "yomiyasu": {
       "source": "nanaism/yomiyasu",
       "sourceType": "github",
-      "skillPath": "SKILL.md",
-      "computedHash": "c13f52c0943b5fc780ab262414a112990bd591e571d99fab8c3caae3d1660465"
+      "skillPath": "skills/yomiyasu/SKILL.md",
+      "computedHash": "f45a6586b47b539db151b18cab28687cc6541650b07e577976211a87919086c7"
     }
   }
 }
