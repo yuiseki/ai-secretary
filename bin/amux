@@ -167,6 +167,13 @@ AGY_RULE = re.compile(r"^─{10,}$")
 AGY_PERMISSION = "Requesting permission for:"
 AGY_TRUST = "Do you trust the contents of this project?"
 
+# opencode's status row is the last line: "esc interrupt" while busy, a
+# "↓ N shell(s)" count while a backgrounded command still runs (even after
+# the turn ended), and a permission prompt ends in its key hints.
+OPENCODE_BUSY_FOOTER = re.compile(r"\besc interrupt\b")
+OPENCODE_SHELL_FOOTER = re.compile(r"↓ \d+ shells?\b")
+OPENCODE_ASK_FOOTER = re.compile(r"Allow once\b.*\benter confirm\b")
+
 
 def state_claude(lines: list[str]) -> str:
     if not lines:
@@ -264,6 +271,28 @@ def state_agy(lines: list[str]) -> str:
     return "idle"
 
 
+def state_opencode(lines: list[str]) -> str:
+    if not lines:
+        return "idle"
+
+    # The prompt is a panel that keeps drawing its left edge below the
+    # key hints, so those are a few lines up. The hints plus "enter
+    # confirm" on one line is not something the transcript says.
+    if any(OPENCODE_ASK_FOOTER.search(line) for line in lines[-4:]):
+        return "ask"
+
+    # The rest read the last line only: the transcript may quote them.
+    footer = lines[-1]
+
+    if OPENCODE_BUSY_FOOTER.search(footer):
+        return "run"
+
+    if OPENCODE_SHELL_FOOTER.search(footer):
+        return "wait"
+
+    return "idle"
+
+
 # Resuming means three different things. claude is told a session id it
 # minted; codex is told a thread name, which amux sets with /rename
 # because codex otherwise names threads after their first prompt; gemini
@@ -296,6 +325,16 @@ AGY_CONFIRM_POLLS = 6
 
 def gemini_session_id(name: str) -> str:
     return str(uuid.uuid5(uuid.NAMESPACE_URL, f"amux:{name}"))
+
+
+OPENCODE_DB = Path.home() / ".local" / "share" / "opencode" / "opencode.db"
+
+
+def opencode_session_id(name: str) -> str:
+    # opencode -s ID creates the session when ID is new, so amux picks the
+    # id itself and never has to look one up, like gemini. It insists on
+    # the ses_ prefix.
+    return "ses_" + uuid.uuid5(uuid.NAMESPACE_URL, f"amux:{name}").hex
 
 
 def find_claude(name: str, by_name) -> str | None:
@@ -341,6 +380,36 @@ def find_gemini(name: str, by_name) -> str | None:
     )
 
     return session_id if glob.glob(pattern) else None
+
+
+def find_opencode(name: str, by_name) -> str | None:
+    session_id = opencode_session_id(name)
+
+    if not OPENCODE_DB.exists():
+        return None
+
+    # Read-only: opencode has the database open and amux is only looking.
+    # 2.x keeps sessions in session_v2, 1.x in session.
+    try:
+        db = sqlite3.connect(f"file:{OPENCODE_DB}?mode=ro", uri=True)
+    except sqlite3.Error:
+        return None
+
+    try:
+        for table in ("session_v2", "session"):
+            try:
+                row = db.execute(
+                    f"SELECT id FROM {table} WHERE id = ?", (session_id,)
+                ).fetchone()
+            except sqlite3.Error:
+                continue
+
+            if row:
+                return session_id
+    finally:
+        db.close()
+
+    return None
 
 
 def find_agy(name: str, by_name) -> str | None:
@@ -561,6 +630,18 @@ AGENTS = {
         "after_start": after_start_agy,
         "sdk": False,
     },
+    # No --auto: that approves everything not explicitly denied, which is
+    # looser than the modes the others run in. Permission prompts show up
+    # as ask instead.
+    "opencode": {
+        "state": state_opencode,
+        "find": find_opencode,
+        "new": lambda name: (
+            f"opencode -s {shlex.quote(opencode_session_id(name))}"
+        ),
+        "resume": lambda name, token: f"opencode -s {shlex.quote(token)}",
+        "sdk": False,
+    },
 }
 
 DEFAULT_KIND = "claude"
@@ -581,6 +662,7 @@ COLORS = {
     "codex": "\033[34m",
     "gemini": "\033[32m",
     "agy": "\033[33m",
+    "opencode": "\033[36m",
     "-": "\033[90m",
     "dim": "\033[90m",
     "warn": "\033[1;31m",
@@ -1164,7 +1246,7 @@ def watch(rest: list[str]):
 def usage():
     print(
         f"""usage:
-  {sys.argv[0]} [--claude|--codex|--gemini|--agy] NAME
+  {sys.argv[0]} [--claude|--codex|--gemini|--agy|--opencode] NAME
   {sys.argv[0]} sync [--yes]
   {sys.argv[0]} stop NAME
   {sys.argv[0]} --restore [--all]
