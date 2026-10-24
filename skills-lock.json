@@ -7,6 +7,12 @@
       "skillPath": "SKILL.md",
       "computedHash": "68a5cffdf9f032d51df5d44f8dec284ce3b30f5f4614cc4b2d8a3cca29e5918c"
     },
+    "hallmark": {
+      "source": "nutlope/hallmark",
+      "sourceType": "github",
+      "skillPath": "skills/hallmark/SKILL.md",
+      "computedHash": "32269cfda7e467ba1e2534428a1186c1b7b28d196d0f3b3227d293512fa5f7ec"
+    },
     "maplibre-cartography": {
       "source": "maplibre/maplibre-agent-skills",
       "sourceType": "github",
@@ -60,6 +66,12 @@
       "sourceType": "github",
       "skillPath": "skills/maplibre-v6-migration/SKILL.md",
       "computedHash": "46a399a4223910259c64053585c4f700127af9d8fe5f878218cf29fcdffd91f7"
+    },
+    "natural-japanese": {
+      "source": "coji/natural-japanese",
+      "sourceType": "github",
+      "skillPath": "skills/natural-japanese/SKILL.md",
+      "computedHash": "e01282f5c90f9ce5385069af7cf164bc6078c110233b4631f58df32d3c81897e"
     },
     "remotion-best-practices": {
       "source": "remotion-dev/skills",
