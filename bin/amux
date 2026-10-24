@@ -7,6 +7,7 @@ import json
 import os
 import re
 import shlex
+import signal
 import sqlite3
 import subprocess
 import sys
@@ -1139,12 +1140,82 @@ def list_names(show_all: bool, detail: bool):
         ))
 
 
+def pane_process_tree(name: str) -> list[int]:
+    # tmux kill-session only hangs up. opencode ignores SIGHUP and would
+    # live on without a terminal, so what ran in the panes is collected
+    # first, while the process tree is still attached.
+    result = subprocess.run(
+        ["tmux", "list-panes", "-s", "-t", f"={name}", "-F", "#{pane_pid}"],
+        capture_output=True,
+        text=True,
+    )
+    roots = [int(pid) for pid in result.stdout.split()]
+
+    if not roots:
+        return []
+
+    table = subprocess.run(
+        ["ps", "-e", "-o", "pid=,ppid="], capture_output=True, text=True
+    ).stdout
+    children: dict[int, list[int]] = {}
+
+    for line in table.splitlines():
+        pid, ppid = (int(field) for field in line.split())
+        children.setdefault(ppid, []).append(pid)
+
+    found, queue = [], list(roots)
+
+    while queue:
+        pid = queue.pop()
+        found.append(pid)
+        queue.extend(children.get(pid, []))
+
+    return found
+
+
+def pid_alive(pid: int) -> bool:
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        return True
+
+    # Unreaped children of a dead parent linger as zombies.
+    try:
+        stat = Path(f"/proc/{pid}/stat").read_text()
+        return stat.rsplit(")", 1)[1].split()[0] != "Z"
+    except (OSError, IndexError):
+        return False
+
+
 def kill_tmux(name: str):
+    pids = pane_process_tree(name)
+
     subprocess.run(
         ["tmux", "kill-session", "-t", f"={name}"],
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,
     )
+
+    # Give the ones that did hang up a moment, then ask, then insist.
+    for sig, wait in ((None, 0.5), (signal.SIGTERM, 2.0), (signal.SIGKILL, 0)):
+        survivors = [pid for pid in pids if pid_alive(pid)]
+
+        if sig is not None:
+            for pid in survivors:
+                try:
+                    os.kill(pid, sig)
+                except ProcessLookupError:
+                    pass
+
+        deadline = time.monotonic() + wait
+
+        while time.monotonic() < deadline:
+            if not any(pid_alive(pid) for pid in survivors):
+                break
+
+            time.sleep(0.1)
 
 
 def sync(assume_yes: bool):
