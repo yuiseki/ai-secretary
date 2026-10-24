@@ -73,6 +73,13 @@
       "skillPath": "skills/natural-japanese/SKILL.md",
       "computedHash": "e01282f5c90f9ce5385069af7cf164bc6078c110233b4631f58df32d3c81897e"
     },
+    "print3d": {
+      "source": "mfranzon/print3d",
+      "ref": "main",
+      "sourceType": "github",
+      "skillPath": "src/print3d/skill/SKILL.md",
+      "computedHash": "b046346a0051bab2e49967ae93669bdb5800679225cb8d06d3731d4ade7c5dbf"
+    },
     "remotion-best-practices": {
       "source": "remotion-dev/skills",
       "sourceType": "github",
