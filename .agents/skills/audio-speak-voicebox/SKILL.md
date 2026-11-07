@@ -248,5 +248,5 @@ curl -fsS http://127.0.0.1:50021/speakers | jq '.[].name'
 - 汎用音再生スキル: `.codex/skills/audio-play/SKILL.md`
 - VOICEVOX API: `http://127.0.0.1:50021`
 - caption overlay: `repos/acaption`
-- 音声待ち受け tmux 管理: `yuiclaw voice-command operator`
+- 音声待ち受け operator 管理: `yuiclaw voice-command operator ...`
 - 典型 HDMI sink: `alsa_output.pci-0000_04_00.1.hdmi-stereo`

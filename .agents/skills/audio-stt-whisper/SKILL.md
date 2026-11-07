@@ -22,7 +22,9 @@ description: "whisper.cpp（whisper-server）と PipeWire マイク入力を使�
 - PipeWire / PulseAudio 互換コマンドが使える
   - `pactl`, `parec`
 - `tmux` 利用可能
-- このリポジトリの運用スクリプト
+- この環境の operator entrypoint
+  - `yuiclaw voice-command operator ...`
+- 互換 backend / 実装
   - `yuiclaw voice-command operator`
   - `repos/ahear/python/src/ahear/whisper_listener.py`
   - `repos/arouter/scripts/voice_command_runtime.py`
@@ -35,7 +37,7 @@ description: "whisper.cpp（whisper-server）と PipeWire マイク入力を使�
 ## この環境の実運用デフォルト（2026-02-25 時点）
 
 - `whisper-server` モデル既定: `ggml-small.bin`
-  - `yuiclaw voice-command operator`
+  - backend: `yuiclaw voice-command operator`
 - 言語: `ja`
 - `voice command loop`:
   - `VOICEVOX volumeScale=2.5`
@@ -67,7 +69,7 @@ description: "whisper.cpp（whisper-server）と PipeWire マイク入力を使�
 - `small と medium を切り替えて比較したい`
 - `音声コマンドのログを見てデバッグしたい`
 
-## まず使うコマンド（tmux 管理）
+## まず使うコマンド（`yuiclaw` operator 管理）
 
 ### `listen-only` を起動
 
@@ -299,7 +301,8 @@ python3 /home/yuiseki/Workspaces/.codex/skills/owner-attention-call/scripts/call
 
 ## ローカル参照
 
-- 管理スクリプト: `yuiclaw voice-command operator`
+- operator entrypoint: `yuiclaw voice-command operator ...`
+- 互換 backend: `yuiclaw voice-command operator`
 - listen-only 実装: `repos/ahear/python/src/ahear/whisper_listener.py`
 - 音声コマンド実装: `repos/arouter/scripts/voice_command_runtime.py`
 - 音声再生（通知音/テストトーン）: `.codex/skills/audio-play/SKILL.md`

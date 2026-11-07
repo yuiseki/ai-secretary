@@ -10,8 +10,7 @@ description: |
 `weathercli` を使用して、現在の天候と 3 日間の予報を取得します。デフォルトでは実行環境の IP アドレスから現在地を自動特定し、その場所の天気を報告します。
 
 ## 前提
-- 実行ディレクトリ: `/home/yuiseki/Workspaces/repos/weathercli`
-- 実行コマンド: `make` (tsx 経由で `src/index.ts` を実行)
+- 実行コマンド: `weathercli`
 - データソース: Open-Meteo API (API キー不要)
 - 位置特定: IP-API (IP ベースのジオコーディング)
 
@@ -20,23 +19,23 @@ description: |
 ### 1. 現在地の天気を取得
 引数なしで実行すると、IP アドレスから現在地を特定して天気を表示します。
 ```bash
-cd /home/yuiseki/Workspaces/repos/weathercli && make run
+weathercli
 ```
 
 ### 2. 指定した都市の天気を取得
 プリセットされている主要都市を指定して取得します。
 ```bash
-make ls-osaka      # 大阪
-make ls-sapporo    # 札幌
-make ls-nagoya     # 名古屋
-make ls-fukuoka    # 福岡
-make ls-tokyo      # 東京 (明示的な指定)
+weathercli --location osaka      # 大阪
+weathercli --location sapporo    # 札幌
+weathercli --location nagoya     # 名古屋
+weathercli --location fukuoka    # 福岡
+weathercli --location tokyo      # 東京 (明示的な指定)
 ```
 
 ### 3. キャッシュを強制更新
-30 分間のキャッシュ（`cache/*.json`）を無視して、最新の情報を取得します。
+30 分間のキャッシュを無視して、最新の情報を取得します。
 ```bash
-make sync
+weathercli --sync
 ```
 
 ## AI 秘書としての活用シナリオ

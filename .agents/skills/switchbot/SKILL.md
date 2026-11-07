@@ -21,6 +21,13 @@ switchbot devices
 switchbot devices --json
 ```
 
+### 物理デバイス状態確認
+```bash
+switchbot status --name "リビングルームの人感センサー"
+switchbot status --name "リビング温湿度計"
+switchbot status --device-id EC91B77EB4AC --json
+```
+
 ### ライト操作
 ```bash
 switchbot lights on

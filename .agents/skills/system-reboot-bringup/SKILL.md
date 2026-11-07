@@ -90,7 +90,7 @@ curl -fsS http://127.0.0.1:9992/json/version
 
 ### 3) 字幕オーバーレイ + lock screen を起動（`acaption-overlay` / `asec-lock-screen`）
 
-字幕表示は `repos/acaption`、lock screen は `repos/asec` を使います。起動責務は `yuiclaw voice-command operator` に集約されています。
+字幕表示は `repos/acaption`、lock screen は `repos/asec` を使います。日常の起動責務は `yuiclaw voice-command operator ...` に寄せ、backend は当面 `yuiclaw voice-command operator` が担います。
 
 ```bash
 yuiclaw voice-command operator start-overlay
@@ -266,7 +266,7 @@ echo '{"type":"notify","text":"bringup OK"}' | nc -q1 127.0.0.1 47832
 - `asec-lock-screen`（lock screen / IPC :47833）
 - `whisper-server-ja`（STT_BACKEND=whisper のときのみ）
 - `whisper-agent-ja`
-- `asee-bg`（起動スクリプト完了後は idle、ASEE プロセス自体は tmux 管理で稼働中）
+- `asee-bg`（起動スクリプト完了後は idle、ASEE プロセス自体は `tmp_main.sh` 配下で稼働中）
 
 注意:
 
@@ -310,14 +310,14 @@ python3 /home/yuiseki/Workspaces/.codex/skills/owner-attention-call/scripts/call
 - 再起動手順は Step 3 を参照
 - 別プロセスがポートを使用中の場合: `lsof -i :47832 -i :47833` で PID を特定して kill
 
-### 5) ASEE Viewer の video server に繋がらない
+### 5) ASEE backend に繋がらない
 
 - `tmp_main.sh restart` が失敗しているか、まだ起動中
 - `tmux capture-pane -pt asee-bg -S -40` でログを確認
-- `DISPLAY` が合っていないと Electron ウィンドウが開かない（step 0 で確認した値を使うこと）
+- `DISPLAY` が合っていないと Electron viewer が開かない（step 0 で確認した値を使うこと）
 - 手動で再起動: `cd ~/Workspaces/repos/asee && DISPLAY=${DESKTOP_DISPLAY} bash tmp_main.sh restart --port 8765 --cameras 0,2,4,6 --capture-profile 720p --opencv-threads 1`
 
-### 6) ASEE Viewer ウィンドウが前面に出たまま戻らない
+### 6) ASEE Viewer が前面に出たまま戻らない
 
 - `--backmost` の KWin スクリプトが効いていない可能性
 - 手動で最背面に: `cd ~/Workspaces/repos/asee && DISPLAY=${DESKTOP_DISPLAY} bash tmp_main.sh layout --port 8765 --backmost`
