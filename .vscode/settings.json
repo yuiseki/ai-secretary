@@ -1,4 +1,22 @@
 {
+    "git.ignoreLimitWarning": true,
+    "files.exclude": {
+        "**/node_modules": true,
+        "**/dist": true,
+        "**/build": true,
+        "**/generated": true,
+        "**/vendor": true,
+        "**/.git": true
+    },
+    "search.exclude": {
+        "**/node_modules/**": true,
+        "**/dist/**": true,
+        "**/build/**": true,
+        "**/generated/**": true,
+        "**/vendor/**": true
+    },
+    "search.useIgnoreFiles": true,
+    "search.followSymlinks": false,
     "cSpell.words": [
         "abeat",
         "ACCUM",
@@ -386,6 +404,5 @@
         "Yuisekin",
         "yuisekinai",
         "zeroclaw"
-    ],
-    "git.ignoreLimitWarning": true
+    ]
 }
