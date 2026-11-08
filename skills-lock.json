@@ -1,6 +1,12 @@
 {
   "version": 1,
   "skills": {
+    "colab-operator": {
+      "source": "googlecolab/google-colab-cli",
+      "sourceType": "github",
+      "skillPath": "skills/colab-operator/SKILL.md",
+      "computedHash": "cb4cff216ea6453d3b0e1d0ade1aa2d79ae4f8a938dbc39095eea1ad451bf292"
+    },
     "consulting-pptx-skill": {
       "source": "carnot-tech/consulting-pptx-skill",
       "sourceType": "github",
