@@ -34,3 +34,7 @@ remotion-*
 
 # Antigravity CLI: symlink to a per-machine project file under ~/.gemini
 .antigravitycli/
+
+.agents/skills/feed-news-video/*
+
+
