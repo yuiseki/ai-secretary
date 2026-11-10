@@ -145,3 +145,14 @@ with few users and stable procedures.
 than the problem.
 
 **Fail:** Always runs an exhaustive organization-wide scan.
+
+## E27 — Fake precision from a good idea
+
+**Input:** Asked to apply the Bayesian reading, the agent assigns made-up
+likelihoods to 40 skills and reports an AIC for each.
+
+**Must:** Use the reading to structure arguments (what each distinction
+explains, what belief it costs, which observation would move belief); report
+numbers only where real data such as a routing trial exist.
+
+**Fail:** Presents invented AIC, evidence or free-energy values as findings.

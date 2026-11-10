@@ -10,7 +10,7 @@ description: >-
   human decision; never changes live systems.
 argument-hint: "[aws|github|slack|skills|other] [scope]"
 metadata:
-  version: "3.1.0"
+  version: "3.2.0"
 ---
 
 # ultra-deep-reduction
@@ -21,6 +21,8 @@ needed to operate a system safely. It is **not** to delete as many objects as
 possible. Forty accounts, a thousand repositories or more Slack channels than
 employees may be harmful even if every item works and costs little, or may be
 exactly right. **Count is a trigger for investigation, not a verdict.**
+Like AIC or Bayesian model evidence, every distinction must buy more accuracy
+than the complexity it costs; see [the Bayesian reading](references/bayesian-view.md).
 
 ## Rules
 
@@ -35,7 +37,8 @@ exactly right. **Count is a trigger for investigation, not a verdict.**
 4. **Protect hard constraints.** Security, logging, backup, recovery, audit,
    legal retention, contracts, safety, accessibility and isolation can justify
    idle or duplicate things.
-5. **No quotas, no composite scores, no invented dollar values.**
+5. **No quotas, no composite scores, no invented dollar values**, and no AIC or
+   evidence values unless computed from real data.
 6. **No blame.** Judge artifacts and incentives, not people or whether AI made them.
 7. **Do not add more machinery than you remove.** No new CMDB, dashboard,
    scanner, committee or meta-skill unless a simpler change cannot do the job.
