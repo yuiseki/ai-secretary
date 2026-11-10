@@ -13,7 +13,7 @@ description: ASEE と ACAM の backend / viewer を停止する。ユーザー�
 通常はこのスクリプトを実行します。
 
 ```bash
-/home/yuiseki/Workspaces/.codex/skills/stop-asee-acam/scripts/stop_asee_acam.sh
+/home/yuiseki/Workspaces/.agents/skills/stop-asee-acam/scripts/stop_asee_acam.sh
 ```
 
 ## オプション
@@ -22,7 +22,7 @@ description: ASEE と ACAM の backend / viewer を停止する。ユーザー�
 - `--dry-run`: 実行予定コマンドだけ表示する
 
 ```bash
-/home/yuiseki/Workspaces/.codex/skills/stop-asee-acam/scripts/stop_asee_acam.sh --status-only
+/home/yuiseki/Workspaces/.agents/skills/stop-asee-acam/scripts/stop_asee_acam.sh --status-only
 ```
 
 ## 補足

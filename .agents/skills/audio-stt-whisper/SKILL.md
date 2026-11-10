@@ -293,7 +293,7 @@ yuiclaw voice-command operator restart-agent
 手動確認をお願いする前に `ASEE` が見えているなら、まず `owner-attention-call` を使う。
 
 ```bash
-python3 /home/yuiseki/Workspaces/.codex/skills/owner-attention-call/scripts/call_owner.py \
+python3 /home/yuiseki/Workspaces/.agents/skills/owner-attention-call/scripts/call_owner.py \
   --message "ユイさま、音声待ち受けの動作確認をお願いします"
 ```
 
@@ -305,8 +305,8 @@ python3 /home/yuiseki/Workspaces/.codex/skills/owner-attention-call/scripts/call
 - 互換 backend: `yuiclaw voice-command operator`
 - listen-only 実装: `repos/ahear/python/src/ahear/whisper_listener.py`
 - 音声コマンド実装: `repos/arouter/scripts/voice_command_runtime.py`
-- 音声再生（通知音/テストトーン）: `.codex/skills/audio-play/SKILL.md`
-- VOICEVOX 発話: `.codex/skills/audio-speak-voicebox/SKILL.md`
-- 手動確認呼びかけ: `.codex/skills/owner-attention-call/SKILL.md`
-- VacuumTube 操作: `.codex/skills/vacuumtube/SKILL.md`
-- ウィンドウ配置操作: `.codex/skills/desktop-windows-layout/SKILL.md`
+- 音声再生（通知音/テストトーン）: `.agents/skills/audio-play/SKILL.md`
+- VOICEVOX 発話: `.agents/skills/audio-speak-voicebox/SKILL.md`
+- 手動確認呼びかけ: `.agents/skills/owner-attention-call/SKILL.md`
+- VacuumTube 操作: `.agents/skills/vacuumtube/SKILL.md`
+- ウィンドウ配置操作: `.agents/skills/desktop-windows-layout/SKILL.md`

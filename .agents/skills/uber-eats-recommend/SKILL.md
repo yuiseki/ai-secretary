@@ -15,7 +15,7 @@ description: Uber Eats のレコメンド。注文分析スキルを活用し、
 ## 処理フロー
 
 1. **分析データの確認・更新**
-   - `.codex/skills/uber-eats-analysys/SKILL.md` の手順に従い、最新の注文データを集計する。
+   - `.agents/skills/uber-eats-analysys/SKILL.md` の手順に従い、最新の注文データを集計する。
    - すでに `.ai-secretary/uber-analysis/uber_orders_summary_all.json` が存在し、最新の状態であればそれを読み込む。
 
 2. **リアルタイム情報の取得 (Cookie利用)**
@@ -42,7 +42,7 @@ description: Uber Eats のレコメンド。注文分析スキルを活用し、
 
 ## 依存スキル・データ
 
-- スキル: `.codex/skills/uber-eats-analysys/SKILL.md`
+- スキル: `.agents/skills/uber-eats-analysys/SKILL.md`
 - データ:
   - `.ai-secretary/uber-analysis/` (集計データ)
   - `.ai-secretary/uber_eats_data/` (メニュー詳細)

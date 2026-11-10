@@ -22,7 +22,7 @@ DISPLAY=:0 import -window "$WIN_ID" /tmp/vision_room.png
 
 3. 画像を Vision で解析する。
 ```bash
-/home/yuiseki/Workspaces/.codex/skills/vision-room-status/scripts/analyze_image.sh \
+/home/yuiseki/Workspaces/.agents/skills/vision-room-status/scripts/analyze_image.sh \
   /tmp/vision_room.png \
   "この画像からお部屋の状況を簡潔に説明してください。"
 ```

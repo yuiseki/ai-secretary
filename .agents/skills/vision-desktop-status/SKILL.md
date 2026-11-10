@@ -17,7 +17,7 @@ DISPLAY=:0 scrot /tmp/vision_desktop.png
 
 2. 画像を Vision で解析する。
 ```bash
-/home/yuiseki/Workspaces/.codex/skills/vision-desktop-status/scripts/analyze_image.sh \
+/home/yuiseki/Workspaces/.agents/skills/vision-desktop-status/scripts/analyze_image.sh \
   /tmp/vision_desktop.png \
   "このデスクトップ画面に映っているアプリやウィンドウの内容を簡潔に説明してください。"
 ```
@@ -26,7 +26,7 @@ DISPLAY=:0 scrot /tmp/vision_desktop.png
 - 既定モデルは `qwen3.5:4b`。
 - モデルを変える場合は第3引数に指定する。
 ```bash
-/home/yuiseki/Workspaces/.codex/skills/vision-desktop-status/scripts/analyze_image.sh \
+/home/yuiseki/Workspaces/.agents/skills/vision-desktop-status/scripts/analyze_image.sh \
   /tmp/vision_desktop.png \
   "画面の要点を箇条書きで説明してください。" \
   gemma3:4b

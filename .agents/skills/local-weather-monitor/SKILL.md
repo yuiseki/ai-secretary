@@ -23,7 +23,7 @@ Use this skill when the user asks to:
 Run the bundled script:
 
 ```bash
-bash .codex/skills/local-weather-monitor/scripts/arrange_local_weather_monitor.sh
+bash .agents/skills/local-weather-monitor/scripts/arrange_local_weather_monitor.sh
 ```
 
 What the script does:
@@ -59,7 +59,7 @@ DISPLAY=:0 wmctrl -lpG
 Use `--dry-run` if you only want to inspect what would happen:
 
 ```bash
-bash .codex/skills/local-weather-monitor/scripts/arrange_local_weather_monitor.sh --dry-run
+bash .agents/skills/local-weather-monitor/scripts/arrange_local_weather_monitor.sh --dry-run
 ```
 
 Final visibility and overlap still need manual confirmation.

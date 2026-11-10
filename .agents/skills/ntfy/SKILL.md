@@ -28,7 +28,7 @@ description: Send an ntfy push notification to call the user when work reaches a
 ## 手順
 0. `ASEE` が利用可能なら、まず以下を試す。
    ```bash
-   python3 /home/yuiseki/Workspaces/.codex/skills/owner-attention-call/scripts/call_owner.py \
+   python3 /home/yuiseki/Workspaces/.agents/skills/owner-attention-call/scripts/call_owner.py \
      --message "ユイさま、動作確認のお願いがあります"
    ```
    `mode` が `speech` なら、そのまま待機する。`mode` が `ntfy` のときだけ以降の手順へ進む。

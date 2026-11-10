@@ -23,7 +23,7 @@ DISPLAY=:0 import -window "$WINDOW_ID" /tmp/vision_window_detail.png
 
 3. 画像を Vision で解析する。
 ```bash
-/home/yuiseki/Workspaces/.codex/skills/vision-window-detail/scripts/analyze_image.sh \
+/home/yuiseki/Workspaces/.agents/skills/vision-window-detail/scripts/analyze_image.sh \
   /tmp/vision_window_detail.png \
   "このウィンドウに何が表示されているか、重要な要素を中心に説明してください。"
 ```

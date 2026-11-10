@@ -20,7 +20,7 @@ description: "手動確認や意思決定が必要になったときに、ASEE �
 ## 実行
 
 ```bash
-python3 /home/yuiseki/Workspaces/.codex/skills/owner-attention-call/scripts/call_owner.py \
+python3 /home/yuiseki/Workspaces/.agents/skills/owner-attention-call/scripts/call_owner.py \
   --message "ユイさま、動作確認のお願いがあります"
 ```
 

@@ -282,7 +282,7 @@ echo '{"type":"notify","text":"bringup OK"}' | nc -q1 127.0.0.1 47832
 手動確認をお願いするときは、`ASEE` が見えていれば先に `owner-attention-call` を使う。
 
 ```bash
-python3 /home/yuiseki/Workspaces/.codex/skills/owner-attention-call/scripts/call_owner.py \
+python3 /home/yuiseki/Workspaces/.agents/skills/owner-attention-call/scripts/call_owner.py \
   --message "ユイさま、復旧後の動作確認をお願いします"
 ```
 

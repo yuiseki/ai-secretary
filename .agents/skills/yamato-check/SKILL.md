@@ -14,8 +14,8 @@ description: 明日以降のヤマト運輸「お荷物お届けのお知らせ�
 ## 使うスキル（順序固定）
 
 1. `yamato-check`（本スキル）で対象メールの抽出と差分判定
-2. `.codex/skills/gog-calendar/SKILL.md` で明日の予定を取得
-3. 差分がある場合のみ `.codex/skills/yamato-change/SKILL.md` で受取日時変更
+2. `.agents/skills/gog-calendar/SKILL.md` で明日の予定を取得
+3. 差分がある場合のみ `.agents/skills/yamato-change/SKILL.md` で受取日時変更
 4. 変更が1件以上あれば `gog send` で完了通知
 
 ## 前提
@@ -56,7 +56,7 @@ description: 明日以降のヤマト運輸「お荷物お届けのお知らせ�
 
 ### 4) 変更対象がある場合のみ `yamato-change` を実行
 
-- `.codex/skills/yamato-change/SKILL.md` の手順で、変更対象すべてを同じ時間帯に合わせる。
+- `.agents/skills/yamato-change/SKILL.md` の手順で、変更対象すべてを同じ時間帯に合わせる。
 - 変更対象が0件なら変更しない。
 
 ### 5) 変更完了通知メール（変更があった時だけ）

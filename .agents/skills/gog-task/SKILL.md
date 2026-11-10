@@ -1,6 +1,6 @@
 ---
 name: gog-task
-description: gog CLI で Google Tasks（ToDo）の追加・更新・完了を実行する手順。ユーザーが「ToDoを追加して」「タスク更新して」「メール確認してタスク更新して」と依頼したときに使う。メール起点の依頼では先に .codex/skills/gog-gmail/SKILL.md を使ってメール内容を確認し、その結果を Tasks に反映する。
+description: gog CLI で Google Tasks（ToDo）の追加・更新・完了を実行する手順。ユーザーが「ToDoを追加して」「タスク更新して」「メール確認してタスク更新して」と依頼したときに使う。メール起点の依頼では先に .agents/skills/gog-gmail/SKILL.md を使ってメール内容を確認し、その結果を Tasks に反映する。
 ---
 
 # Gog Tasks Update
@@ -15,7 +15,7 @@ description: gog CLI で Google Tasks（ToDo）の追加・更新・完了を実
 
 ## 連携フロー（メール確認してタスク更新して）
 
-1. 先に `.codex/skills/gog-gmail/SKILL.md` を使い、対象メールを確定する。
+1. 先に `.agents/skills/gog-gmail/SKILL.md` を使い、対象メールを確定する。
 2. メールから最低限の情報を抽出する。
    - `date`
    - `from`
@@ -90,5 +90,5 @@ description: gog CLI で Google Tasks（ToDo）の追加・更新・完了を実
 
 - Write 操作（`add`/`update`/`done`）の前に `--dry-run` で確認する。
 - メール起点タスクは `subject` と `date` を notes に残し、追跡可能にする。
-- `gmail search` の返却順は最新保証ではないため、メール特定は `.codex/skills/gog-gmail/SKILL.md` の再ソート手順を使う。
+- `gmail search` の返却順は最新保証ではないため、メール特定は `.agents/skills/gog-gmail/SKILL.md` の再ソート手順を使う。
 - TTY 実行時にパスフレーズプロンプトが標準出力へ混ざる場合があるため、JSON パース前に `sed -n '/^{/,$p'` で先頭ノイズを除去する。

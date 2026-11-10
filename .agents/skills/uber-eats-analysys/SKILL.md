@@ -20,7 +20,7 @@ Uber Eats の分析は次の二層で扱う。
 
 ## ファイル配置
 
-- スクリプト: `.codex/skills/uber-eats-analysys/scripts/analyze_uber_orders.py`
+- スクリプト: `.agents/skills/uber-eats-analysys/scripts/analyze_uber_orders.py`
 - 主入力データ: `.ai-secretary/uber-analysis/raw_by_year/uber_YYYY.json`
 - 補完入力データ: `.ai-secretary/uber_eats_data/uber_eats_*.json`
 - 出力データ:
@@ -79,13 +79,13 @@ playwright-cli -s=uber run-code "async page => {
 2. 主データを集計する（analysis window 指定）。
 
 ```bash
-python3 .codex/skills/uber-eats-analysys/scripts/analyze_uber_orders.py --windows 7,30
+python3 .agents/skills/uber-eats-analysys/scripts/analyze_uber_orders.py --windows 7,30
 ```
 
 3. 必要なら window を増やす。
 
 ```bash
-python3 .codex/skills/uber-eats-analysys/scripts/analyze_uber_orders.py --windows 7,30,90 --top-stores 30
+python3 .agents/skills/uber-eats-analysys/scripts/analyze_uber_orders.py --windows 7,30,90 --top-stores 30
 ```
 
 4. `.ai-secretary/uber_eats_data` が存在する場合、詳細補完を実行する。

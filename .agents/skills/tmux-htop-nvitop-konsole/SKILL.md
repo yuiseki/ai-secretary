@@ -34,7 +34,7 @@ description: "tmux セッションに htop（左）/ nvitop（右）の垂直分
 
 ## スクリプト
 
-- 実行スクリプト: `.codex/skills/tmux-htop-nvitop-konsole/scripts/tmux_htop_nvitop_konsole.sh`
+- 実行スクリプト: `.agents/skills/tmux-htop-nvitop-konsole/scripts/tmux_htop_nvitop_konsole.sh`
 
 主なコマンド:
 
@@ -50,7 +50,7 @@ description: "tmux セッションに htop（左）/ nvitop（右）の垂直分
 ### 1) 現在の状態を再現して Konsole で開く（推奨）
 
 ```bash
-.codex/skills/tmux-htop-nvitop-konsole/scripts/tmux_htop_nvitop_konsole.sh \
+.agents/skills/tmux-htop-nvitop-konsole/scripts/tmux_htop_nvitop_konsole.sh \
   open \
   --session 1 \
   --recreate
@@ -64,7 +64,7 @@ description: "tmux セッションに htop（左）/ nvitop（右）の垂直分
 ### 2) まず tmux だけ作って中身を確認する
 
 ```bash
-.codex/skills/tmux-htop-nvitop-konsole/scripts/tmux_htop_nvitop_konsole.sh \
+.agents/skills/tmux-htop-nvitop-konsole/scripts/tmux_htop_nvitop_konsole.sh \
   create \
   --session sysmon \
   --recreate
@@ -73,7 +73,7 @@ description: "tmux セッションに htop（左）/ nvitop（右）の垂直分
 ### 3) 既存セッションを Konsole で開く
 
 ```bash
-.codex/skills/tmux-htop-nvitop-konsole/scripts/tmux_htop_nvitop_konsole.sh \
+.agents/skills/tmux-htop-nvitop-konsole/scripts/tmux_htop_nvitop_konsole.sh \
   attach \
   --session sysmon
 ```
@@ -81,7 +81,7 @@ description: "tmux セッションに htop（左）/ nvitop（右）の垂直分
 ### 4) SSH / 現在の端末で直接 attach（GUI不要）
 
 ```bash
-.codex/skills/tmux-htop-nvitop-konsole/scripts/tmux_htop_nvitop_konsole.sh \
+.agents/skills/tmux-htop-nvitop-konsole/scripts/tmux_htop_nvitop_konsole.sh \
   attach-cli \
   --session sysmon
 ```
@@ -89,7 +89,7 @@ description: "tmux セッションに htop（左）/ nvitop（右）の垂直分
 ## 状態確認
 
 ```bash
-.codex/skills/tmux-htop-nvitop-konsole/scripts/tmux_htop_nvitop_konsole.sh \
+.agents/skills/tmux-htop-nvitop-konsole/scripts/tmux_htop_nvitop_konsole.sh \
   status \
   --session 1
 ```
@@ -107,14 +107,14 @@ description: "tmux セッションに htop（左）/ nvitop（右）の垂直分
 ```bash
 HTOP_CMD='htop' \
 NVITOP_CMD='nvitop --monitor full' \
-.codex/skills/tmux-htop-nvitop-konsole/scripts/tmux_htop_nvitop_konsole.sh \
+.agents/skills/tmux-htop-nvitop-konsole/scripts/tmux_htop_nvitop_konsole.sh \
   open --session sysmon --recreate
 ```
 
 Konsole 関連:
 
 ```bash
-.codex/skills/tmux-htop-nvitop-konsole/scripts/tmux_htop_nvitop_konsole.sh \
+.agents/skills/tmux-htop-nvitop-konsole/scripts/tmux_htop_nvitop_konsole.sh \
   open \
   --session sysmon \
   --profile 'Shell' \
