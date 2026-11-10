@@ -144,6 +144,21 @@ arrangement. Say so.
   which ongoing obligations each one carries, not a reason to treat generated
   code as disposable (see [other domains](other-domains.md)).
 
+## When you are not the owner: one decision issue
+
+Without rights to close or archive, deliver the decision queue where the
+decision-makers already work. A good real example is
+[maplibre-native#4836](https://github.com/maplibre/maplibre-native/issues/4836):
+every open issue and PR was checked against one pinned commit; each flagged
+item got a comment with its evidence (fixing PR and release, removed files,
+a reproduction attempt and its environment), which also notifies its
+subscribers; one issue lists all of them by category as checkboxes, says what
+was left alone, and invites corrections; it also surfaces blocked work
+(approved PRs not merged, CI awaiting approval, conflicting duplicate PRs).
+Add what it lacked: a stated end (when the list issue itself closes), and the
+coverage of each "does not reproduce" claim, since one environment says little
+about device-specific bugs.
+
 ## Two illustrative findings (hypothetical, not inferred from counts)
 
 - Finding A: 1,000 repositories, 850 have no workflows, no secrets and nothing
