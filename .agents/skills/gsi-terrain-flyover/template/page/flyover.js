@@ -7,7 +7,8 @@ let map, spec, overlayEl, tintEl, terrainSpec, lastRasterSig = '';
 
 const BASES = {
   // 地理院タイル 全国最新写真(シームレス)。世界の低ズームは衛星モザイクで埋まっている
-  seamlessphoto: { tiles: ['https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/{z}/{x}/{y}.jpg'], maxzoom: 18,
+  // the photo paints open sea black where there is no picture; gsiclear turns that black transparent
+  seamlessphoto: { tiles: ['gsiclear://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/{z}/{x}/{y}.jpg'], maxzoom: 18,
     credit: '空中写真：国土地理院(地理院タイル「全国最新写真(シームレス)」)を加工' },
   std: { tiles: ['https://cyberjapandata.gsi.go.jp/xyz/std/{z}/{x}/{y}.png'], maxzoom: 18,
     credit: '地図：国土地理院(地理院タイル「標準地図」)を加工' },
@@ -26,6 +27,14 @@ const BASES = {
     credit: '1936〜42年の空中写真：陸軍撮影(国土地理院)を加工' },
 };
 const rasterSource = (b) => ({ type: 'raster', tiles: b.tiles, tileSize: 256, minzoom: b.minzoom ?? 0, maxzoom: b.maxzoom });
+// NASA Blue Marble (NASA GIBS, Web Mercator, up to z8). Used for the zoomed-out world views under the
+// GSI photo; the GSI photo fades in as the camera zooms in (spec.worldFade, camera zoom).
+const WORLDS = {
+  bluemarble: { tiles: ['https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/BlueMarble_ShadedRelief_Bathymetry/default/GoogleMapsCompatible_Level8/{z}/{y}/{x}.jpeg'],
+    maxzoom: 8, credit: '衛星画像：NASA Blue Marble (海底地形つき、NASA GIBS 経由)' },
+  'bluemarble-plain': { tiles: ['https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/BlueMarble_NextGeneration/default/GoogleMapsCompatible_Level8/{z}/{y}/{x}.jpeg'],
+    maxzoom: 8, credit: '衛星画像：NASA Blue Marble Next Generation (NASA GIBS 経由)' },
+};
 const DEMS = {
   // 地理院 標高タイル(基盤地図情報 数値標高モデル)。z14 まで。海と国外は 0 m にする
   gsi: { tiles: ['gsidem://cyberjapandata.gsi.go.jp/xyz/dem_png/{z}/{x}/{y}.png'], maxzoom: 14,
@@ -65,6 +74,7 @@ function registerClearBlack() {
     if (!res.ok) {
       // 404 = no old photo here: an empty (transparent) tile, not an error
       const empty = new OffscreenCanvas(256, 256);
+      empty.getContext('2d'); // convertToBlob needs a context, even for a blank tile
       return { data: await (await empty.convertToBlob({ type: 'image/png' })).arrayBuffer() };
     }
     const bmp = await createImageBitmap(await res.blob());
@@ -73,7 +83,11 @@ function registerClearBlack() {
     ctx.drawImage(bmp, 0, 0);
     const img = ctx.getImageData(0, 0, bmp.width, bmp.height);
     const d = img.data;
-    for (let i = 0; i < d.length; i += 4) if (d[i] < 10 && d[i + 1] < 10 && d[i + 2] < 10) d[i + 3] = 0;
+    // "no data" is pure black in old photos and flat gray (52,52,52) in the low-zoom world mosaic
+    for (let i = 0; i < d.length; i += 4) {
+      const r = d[i], g = d[i + 1], b = d[i + 2];
+      if ((r < 10 && g < 10 && b < 10) || (Math.abs(r - 52) <= 3 && Math.abs(g - 52) <= 3 && Math.abs(b - 52) <= 3)) d[i + 3] = 0;
+    }
     ctx.putImageData(img, 0, 0);
     return { data: await (await canvas.convertToBlob({ type: 'image/png' })).arrayBuffer() };
   });
@@ -142,20 +156,29 @@ function overlayLayers(shots) {
 function buildStyle() {
   const base = BASES[spec.base ?? 'seamlessphoto'];
   const dem = DEMS[spec.dem ?? 'gsi'];
+  const world = spec.world === false ? null : WORLDS[spec.world ?? 'bluemarble'];
+  const [wf0, wf1] = spec.worldFade ?? [5.5, 7];
+  // GSI photo opacity by camera zoom: 0 below wf0 (world image only), 1 above wf1
+  const gsiOpacity = world ? ['interpolate', ['linear'], ['zoom'], wf0, 0, wf1, 1] : 1;
   const ov = overlayLayers(spec.shots);
   return {
     version: 8,
     sources: {
       base: rasterSource(base),
+      // the same photo capped at z12, drawn underneath: fills open sea where the detailed tiles have no picture
+      baselo: { ...rasterSource(base), maxzoom: Math.min(12, base.maxzoom) },
+      ...(world ? { world: rasterSource(world) } : {}),
       dem: { type: 'raster-dem', tiles: dem.tiles, tileSize: 256, maxzoom: dem.maxzoom, encoding: 'terrarium' },
       // a second source for the hillshade: MapLibre warns that sharing the terrain source lowers quality
       demshade: { type: 'raster-dem', tiles: dem.tiles, tileSize: 256, maxzoom: dem.maxzoom, encoding: 'terrarium' },
       ...ov.sources,
     },
     layers: [
-      // where no tile is drawn near the horizon, show the fog color instead of a dark hole
-      { id: 'bg', type: 'background', paint: { 'background-color': spec.sky?.['fog-color'] ?? '#c9d8e8' } },
-      { id: 'base', type: 'raster', source: 'base', paint: { 'raster-saturation': spec.saturation ?? -0.1, 'raster-contrast': spec.contrast ?? 0.08, 'raster-fade-duration': 0 } },
+      // shows through where no picture exists at any zoom (far open sea): a dark sea blue like the world mosaic
+      { id: 'bg', type: 'background', paint: { 'background-color': spec.background ?? '#10243a' } },
+      ...(world ? [{ id: 'world', type: 'raster', source: 'world', paint: { 'raster-fade-duration': 0 } }] : []),
+      { id: 'baselo', type: 'raster', source: 'baselo', paint: { 'raster-saturation': spec.saturation ?? -0.1, 'raster-contrast': spec.contrast ?? 0.08, 'raster-fade-duration': 0, 'raster-opacity': gsiOpacity } },
+      { id: 'base', type: 'raster', source: 'base', paint: { 'raster-saturation': spec.saturation ?? -0.1, 'raster-contrast': spec.contrast ?? 0.08, 'raster-fade-duration': 0, 'raster-opacity': gsiOpacity } },
       ...ov.baseLayers,
       ...(spec.hillshade === false ? [] : [{ id: 'shade', type: 'hillshade', source: 'demshade',
         paint: { 'hillshade-exaggeration': spec.hillshade ?? 0.25, 'hillshade-shadow-color': '#0a1020', 'hillshade-highlight-color': '#ffffff' } }]),
@@ -164,11 +187,11 @@ function buildStyle() {
     terrain: { source: 'dem', exaggeration: spec.exaggeration ?? 1.3 },
     sky: spec.sky ?? { 'sky-color': '#6f9fd6', 'horizon-color': '#dce8f5', 'fog-color': '#c9d8e8',
       'sky-horizon-blend': 0.6, 'horizon-fog-blend': 0.7, 'fog-ground-blend': 0.85, 'atmosphere-blend': 0 },
-    credits: [base.credit, ...ov.credits, dem.credit],
+    credits: [base.credit, ...(world ? [world.credit] : []), ...ov.credits, dem.credit],
   };
 }
 
-function settle(timeoutMs = 20000) {
+function settle(timeoutMs = 40000) {
   return new Promise((resolve) => {
     const timer = setTimeout(() => resolve('timeout'), timeoutMs);
     map.once('idle', () => { clearTimeout(timer); resolve('idle'); });
@@ -235,6 +258,17 @@ function drawOverlays(si, shot, t, pass) {
       el('chapter', (o.kicker ? `<span class="kicker">${esc(o.kicker)}</span>` : '') + `<span class="title">${esc(o.text)}</span>`, { opacity: a });
     } else if (o.type === 'note') {
       el('note', esc(o.text), { opacity: a });
+    } else if (o.type === 'quote') {
+      // a news quote card: source and date on top, the quoted sentence below
+      const [x, y] = o.screen ?? [70, 200];
+      el('quote' + (o.marks === false ? ' plain' : ''), `<span class="src">${esc(o.source ?? '')}${o.date ? '　' + esc(o.date) : ''}</span>` +
+        `<span class="q">${esc(o.text)}</span>`, { left: x + 'px', top: y + 'px', width: (o.width ?? 760) + 'px', opacity: a });
+    } else if (o.type === 'panel') {
+      // a figure (chart PNG, photo) on screen with a caption and its credit
+      const [x, y] = o.screen ?? [1100, 160];
+      el('panel', (o.caption ? `<span class="cap">${esc(o.caption)}</span>` : '') +
+        `<img src="/${esc(o.src.replace(/^\/+/, ''))}">` + (o.credit ? `<span class="cr">${esc(o.credit)}</span>` : ''),
+        { left: x + 'px', top: y + 'px', width: (o.width ?? 720) + 'px', opacity: a });
     } else if (o.type === 'subtitle') {
       el('subtitle', esc(o.text), { opacity: a, ...(o.color ? { color: o.color } : {}) });
     }
@@ -242,7 +276,7 @@ function drawOverlays(si, shot, t, pass) {
   tintEl.style.opacity = tint;
   if (pass === 'dom') {
     const hasSub = (shot.overlays || []).some((o) => o.type === 'subtitle');
-    document.getElementById('credit').style.bottom = hasSub ? '166px' : '16px';
+    document.getElementById('credit').style.bottom = hasSub ? '196px' : '16px';
   }
 }
 
@@ -297,6 +331,8 @@ async function frame(sec) {
   const r = await settle();
   // DOM overlays after the map settles: map.project needs the terrain tiles of this view
   drawOverlays(index, shot, t, 'dom');
+  // panels: wait until their pictures are decoded, or the frame would catch an empty box
+  await Promise.all([...overlayEl.querySelectorAll('img')].map((i) => i.decode().catch(() => console.error('panel image failed: ' + i.src))));
   return r;
 }
 

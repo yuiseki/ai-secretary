@@ -5,7 +5,7 @@ description: 地理院タイルの空中写真と標高で地形を 3D にし、
 
 # gsi-terrain-flyover
 
-ショットの一覧 (JSON) → セリフを VOICEVOX で合成してショットの長さと字幕を決める → ヘッドレス Chromium の MapLibre で 1 コマずつ描く → ffmpeg で声 (と BGM) を重ねて mp4。
+下地は地理院タイルの写真と標高、引いた画は NASA Blue Marble。ショットの一覧 (JSON) → セリフを VOICEVOX で合成してショットの長さと字幕を決める → ヘッドレス Chromium の MapLibre で 1 コマずつ描く → ffmpeg で声 (と BGM) を重ねて mp4。
 
 ```
 shots/*.json ─▶ voice.mjs (VOICEVOX) ─▶ render.mjs ─▶ page/ (MapLibre 5.24 + 地理院タイル) ─▶ frames/*.png ─▶ <名前>.mp4
@@ -59,7 +59,7 @@ systemd-run --user --scope -q -p MemoryMax=8G -p MemorySwapMax=0 -p CPUQuota=400
 
 セリフ: ショットに `lines` (`[{ "voice": "a", "text": "…", "speech": "読み" }]`) を書くと、声の長さに合わせてショットが伸び、話し手の色の字幕が 1 セリフ 1 枚で入る。手本は 1 ショット 1〜2 セリフ、1 秒 6.9 文字、セリフの間 0.24 秒 (`references/narration.md`)。
 
-重ね物: `line` (引きながら描く線) / `polygon` (範囲) / `label` (地図に貼り付く地名、画面に固定の札) / `counter` (大きな数字、数え上げ) / `chapter` (暗くした地形に章見出し) / `note` (右上の「模式図」など) / `subtitle` (下の字幕帯) / `base` (昔の空中写真などへの切り替え) / `image` (自分で位置合わせした画像)。
+重ね物: `line` (引きながら描く線) / `polygon` (範囲) / `label` (地図に貼り付く地名、画面に固定の札) / `counter` (大きな数字、数え上げ) / `chapter` (暗くした地形に章見出し) / `note` (右上の「模式図」など) / `subtitle` (下の字幕帯) / `quote` (ニュースの引用カード) / `panel` (グラフなどの図) / `base` (昔の空中写真などへの切り替え) / `image` (自分で位置合わせした画像)。
 
 カメラの動きの決め方は `references/look.md` の「カメラ」。要点: 1 ショット 4〜8 秒で、ゆっくり寄るか回り込む。見せたい物を画面の中央より少し上に置く。斜めの角度 (pitch) は 55〜70 度。
 
@@ -74,7 +74,7 @@ systemd-run --user --scope -q -p MemoryMax=8G -p MemorySwapMax=0 -p CPUQuota=400
 
 ## 6. いまの限界
 
-- 標高は地理院の標高タイル (z14、約 10m メッシュ) だけ。海と国外は 0 m の平らな面になる。海外の地形は、標高の source を足す改修が要る (`references/gsi-tiles.md`)。
+- 標高は地理院の標高タイル (z14、約 10m メッシュ) だけ。海と国外は 0 m の平らな面になる (画は Blue Marble で埋まるが、山は立たない)。海外の地形は、標高の source を足す改修が要る (`references/gsi-tiles.md`)。
 - 3D の建物、断面図、重機などの CG は作らない。手本の映像では、そこは別の 3D ソフトで作っている。
 - `image` は北が上の画像だけ。緯度は線形に当てはめるので、広い範囲 (数十 km 以上) ではずれる。
 - 昔の空中写真のタイルは場所によって抜けがある。全体を見せるには、自分で写真をつなぎ合わせて `image` で貼る。

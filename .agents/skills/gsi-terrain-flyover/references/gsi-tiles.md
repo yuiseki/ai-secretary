@@ -18,6 +18,14 @@ URL は `https://cyberjapandata.gsi.go.jp/xyz/<ID>/{z}/{x}/{y}.<拡張子>`。20
 - `gazo1` の JPEG は、写真の無い所が真っ黒。`gsiclear` プロトコルで真っ黒を透明にして、今の写真が透けるようにしている。
 - 範囲の抜けを埋めて全体を見せたいときは、「地図・空中写真閲覧サービス」の写真を自分でつないで `image` で貼る (手本の映像もそうしている)。
 
+## 世界の引きの画 (NASA Blue Marble)
+
+- 既定で、地理院の写真の下に NASA Blue Marble (海底地形つき、`BlueMarble_ShadedRelief_Bathymetry`) を敷く。NASA GIBS の Web メルカトルのタイル、z8 まで。
+  `https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/BlueMarble_ShadedRelief_Bathymetry/default/GoogleMapsCompatible_Level8/{z}/{y}/{x}.jpeg` (行と列の順が {y}/{x})
+- カメラの zoom が `worldFade` の 1 つ目より引いていれば Blue Marble だけ、2 つ目より寄れば地理院の写真だけ、間は溶けるように切り替わる。既定は [5.5, 7]。海外の場所を z7〜8 で見せるなら [7.6, 8.8] くらいに上げる (地理院の世界モザイクは海に筋や欠けが出る)。
+- `"world": "bluemarble-plain"` で海底地形なしの版、`false` で使わない。
+- 出典は自動で「衛星画像：NASA Blue Marble (海底地形つき、NASA GIBS 経由)」が入る。
+
 ## 標高
 
 - `dem: "gsi"` は標高タイル `dem_png` (z14 まで、基盤地図情報の数値標高モデル)。

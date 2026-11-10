@@ -15,6 +15,8 @@
 }
 ```
 
+- `world` / `worldFade`: 引いた画の NASA Blue Marble と、地理院の写真に切り替わる zoom の範囲 (`gsi-tiles.md`)。
+- `background`: 写真がどのズームにも無い所 (遠くの海) の色。既定は暗い海の青 `#10243a`。
 - `base`: 下地のタイル。`seamlessphoto` (既定) / `std` / `pale` / `relief`。一覧は `gsi-tiles.md`。
 - `hillshade`: 陰影の強さ (0〜1)。`false` で消す。写真だけだと平たく見えるので薄く足している。
 - `sky`: 空と霧の設定 (MapLibre の sky)。省略すると水色の空に白い霧。
@@ -54,6 +56,9 @@ bearing は近い向きに回る (350 度 → 10 度は 20 度だけ回る)。
 { "type": "chapter", "kicker": "第2章", "text": "谷がなければ受け皿を造る" }
 { "type": "note", "text": "模式図" }
 { "type": "subtitle", "text": "字幕の 1 行。\n改行もできる", "color": "#ffe94a" }
+{ "type": "quote", "source": "帝国データバンク", "date": "2026-11-03", "text": "記事の一文", "screen": [70, 160], "width": 780 }
+{ "type": "quote", "source": "…", "text": "要約した内容", "marks": false }
+{ "type": "panel", "src": "assets/chart.png", "caption": "図の見出し", "credit": "出典", "screen": [1090, 150], "width": 780 }
 { "type": "base", "layer": "gazo1", "show": [0.45, 1], "fade": 0.2 }
 { "type": "image", "src": "assets/mosaic_1948.png", "bbox": [west, south, east, north], "credit": "1948年の空中写真：米軍撮影(国土地理院)をつないで加工" }
 ```
@@ -62,6 +67,8 @@ bearing は近い向きに回る (350 度 → 10 度は 20 度だけ回る)。
 - `line` の `draw` は線が伸びていく区間。省略すると最初から全部見える。長さは平面の距離で測っている (短い線なら十分)。
 - `counter` の `decimals` で小数の桁、`countEase: "linear"` で等速に数える (既定はだんだん遅く)。
 - `image` の `src` はプロジェクトのフォルダからの相対パス。北が上の画像だけ。
+- `quote` はニュースの引用カード (媒体名と日付の下に本文)。本文は「」で囲む。記事の文そのままでないとき (要約) は `"marks": false` で「」を外す。
+- `panel` は画面に置く図 (グラフの PNG など)。画像の読み込みを待ってから撮る。グラフは別に作る (例: matplotlib で暗い背景、1 系列、凡例なし、見出しは `caption`)。
 
 ## 位置の取り方
 

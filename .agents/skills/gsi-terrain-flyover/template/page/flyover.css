@@ -29,5 +29,16 @@ html, body { margin: 0; background: #000; overflow: hidden; }
 .o.chapter .kicker { display: block; font-size: 30px; color: var(--accent); margin-bottom: 14px; }
 .o.chapter .title { font-size: 72px; }
 .o.note { right: 28px; top: 24px; font-size: 22px; font-weight: 500; background: rgba(0,0,0,0.45); padding: 4px 12px; border-radius: 4px; }
-.o.subtitle { left: 0; right: 0; bottom: 0; height: 150px; background: var(--navy); display: flex; align-items: center; justify-content: center;
-  text-align: center; font-size: 44px; color: #ffe94a; white-space: pre-line; border-top: 2px solid rgba(255,255,255,0.12); }
+.o.subtitle { left: 0; right: 0; bottom: 0; height: 180px; background: var(--navy); display: flex; align-items: center; justify-content: center;
+  text-align: center; font-size: 58px; line-height: 1.25; color: #ffe94a; white-space: pre-line; border-top: 2px solid rgba(255,255,255,0.12); }
+
+.o.quote { background: rgba(10, 16, 30, 0.82); border-left: 8px solid var(--accent); padding: 18px 26px 22px; border-radius: 6px;
+  white-space: normal; text-shadow: none; box-shadow: 0 6px 24px rgba(0,0,0,0.45); }
+.o.quote .src { display: block; font-size: 22px; font-weight: 500; color: #c9d6ea; margin-bottom: 10px; }
+.o.quote .q { display: block; font-size: 38px; line-height: 1.45; }
+.o.quote:not(.plain) .q::before { content: "「"; } .o.quote:not(.plain) .q::after { content: "」"; }
+.o.panel { background: rgba(10, 16, 30, 0.85); padding: 16px 18px 12px; border-radius: 8px; white-space: normal; text-shadow: none;
+  box-shadow: 0 6px 24px rgba(0,0,0,0.45); }
+.o.panel .cap { display: block; font-size: 28px; margin-bottom: 10px; }
+.o.panel img { display: block; width: 100%; height: auto; border-radius: 4px; }
+.o.panel .cr { display: block; font-size: 17px; font-weight: 400; color: #c9d6ea; margin-top: 8px; text-align: right; }
