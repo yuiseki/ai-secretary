@@ -104,7 +104,7 @@ if (stills) {
     const j = JSON.parse(m.stderr.slice(m.stderr.lastIndexOf('{'), m.stderr.lastIndexOf('}') + 1));
     const second = `loudnorm=${target}:measured_I=${j.input_i}:measured_TP=${j.input_tp}:measured_LRA=${j.input_lra}:measured_thresh=${j.input_thresh}:offset=${j.target_offset}:linear=true`;
     ff.push(...inputs);
-    audio = ['-filter_complex', `${mixFilter(1, 2)},${second}[a]`, '-map', '0:v', '-map', '[a]', '-c:a', 'aac', '-b:a', '192k', '-ar', '48000'];
+    audio = ['-filter_complex', `${mixFilter(1, 2)},${second}[a]`, '-map', '0:v', '-map', '[a]', '-c:a', 'aac', '-b:a', '192k', '-ar', '48000', '-ac', '2'];  // stereo: some players drop or one-side mono AAC
   } else if (narration.wav) {
     console.error('note: --from/--to renders the picture only (no audio)');
   }
