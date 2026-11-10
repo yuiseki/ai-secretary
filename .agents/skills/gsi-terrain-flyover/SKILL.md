@@ -37,7 +37,7 @@ systemd-run --user --scope -q -p MemoryMax=8G -p MemorySwapMax=0 -p CPUQuota=400
 - まず `--stills` で構図と重ね物を目で確かめ (stills.jpg を Read で見る)、よければ通しで書き出す。
 - 一部だけ: `--from 5 --to 11` (画だけ、声なし)。小さく: `--size 1280x720`。コマ数: `--fps 24`。声を合成せず長さだけ見積もる下書き: `--no-voice`。
 - `shots/narrated.json` は 2 人の掛け合いの例。声は `out/<名前>/voice-cache/` に残るので、2 回目からは合成しない。
-- 実測 (RTX 3060、1920x1080): 1 コマ 0.55〜0.65 秒。15 秒のカットで約 4 分。
+- 実測 (RTX 3060、1920x1080): 1 コマ約 0.1 秒 (地図とタイル 37 ms、JPEG のスクリーンショット 54 ms)。コマは JPEG (品質 95) で撮る。PNG だと圧縮に 1 コマ 428 ms かかり、全体が 5 倍遅くなった。
 
 ## 3. GPU で描く
 

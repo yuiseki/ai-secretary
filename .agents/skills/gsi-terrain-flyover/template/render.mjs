@@ -69,7 +69,9 @@ const t0 = Date.now();
 for (let i = 0; i < times.length; i++) {
   const r = await page.evaluate((s) => window.FLY.frame(s), times[i]);
   if (r === 'timeout') timeouts++;
-  await page.screenshot({ path: path.join(out, 'frames', String(i).padStart(5, '0') + '.png') });
+  // JPEG, not PNG: PNG encoding of a 1920x1080 screenshot took 428 ms of one CPU core per frame
+  // (the GPU drawing and tile wait took 37 ms); JPEG q95 takes about 55 ms.
+  await page.screenshot({ path: path.join(out, 'frames', String(i).padStart(5, '0') + '.jpg'), type: 'jpeg', quality: 95 });
   if (i % 30 === 0) process.stdout.write(`\r${i + 1}/${times.length} frames, ${((Date.now() - t0) / 1000).toFixed(0)} s`);
 }
 process.stdout.write(`\r${times.length}/${times.length} frames, ${((Date.now() - t0) / 1000).toFixed(0)} s\n`);
@@ -80,12 +82,12 @@ if (timeouts) console.error(`warning: ${timeouts} frame(s) were captured before 
 if (stills) {
   const sheet = path.join(out, 'stills.jpg');
   const cols = Math.min(4, times.length);
-  spawnSync('ffmpeg', ['-v', 'error', '-y', '-i', path.join(out, 'frames', '%05d.png'), '-vf', `scale=480:-1,tile=${cols}x${Math.ceil(times.length / cols)}`, '-frames:v', '1', sheet], { stdio: 'inherit' });
+  spawnSync('ffmpeg', ['-v', 'error', '-y', '-i', path.join(out, 'frames', '%05d.jpg'), '-vf', `scale=480:-1,tile=${cols}x${Math.ceil(times.length / cols)}`, '-frames:v', '1', sheet], { stdio: 'inherit' });
   console.log(`stills: ${sheet}`);
 } else {
   const mp4 = path.join(out, path.basename(out) + '.mp4');
   const partial = from > 0 || to < total;
-  const ff = ['-v', 'error', '-y', '-framerate', String(fps), '-i', path.join(out, 'frames', '%05d.png')];
+  const ff = ['-v', 'error', '-y', '-framerate', String(fps), '-i', path.join(out, 'frames', '%05d.jpg')];
   let audio = [];
   if (narration.wav && !partial) {
     // Voice (+ BGM, lowered and looped) mixed, then normalized to -14 LUFS (YouTube) in two passes:
