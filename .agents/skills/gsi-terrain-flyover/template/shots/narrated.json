@@ -1,0 +1,34 @@
+{
+  "fps": 30,
+  "voices": {
+    "a": { "speaker": 3, "name": "ずんだもん", "speed": 1.3 },
+    "b": { "speaker": 2, "name": "四国めたん", "speed": 1.2 }
+  },
+  "tts": { "url": "http://127.0.0.1:50021", "padStart": 0.3, "pause": 0.25, "padEnd": 0.4 },
+  "credits": ["線と数字は説明のための模式図(位置は概略)"],
+  "shots": [
+    {
+      "from": { "center": [138.7274, 35.3606], "zoom": 11.4, "pitch": 60, "bearing": 30 },
+      "to":   { "center": [138.7274, 35.3606], "zoom": 11.8, "pitch": 64, "bearing": 50 },
+      "lines": [
+        { "voice": "a", "text": "これは地理院タイルの写真と標高で作った富士山なのだ。" },
+        { "voice": "b", "text": "斜めから見ると、山の形がよく分かるわね。" }
+      ],
+      "overlays": [ { "type": "label", "at": [138.7274, 35.3606], "text": "富士山", "style": "tag", "show": [0.15, 1] } ]
+    },
+    {
+      "from": { "center": [138.712, 35.356], "zoom": 12.6, "pitch": 66, "bearing": 75 },
+      "to":   { "center": [138.716, 35.357], "zoom": 13.1, "pitch": 68, "bearing": 85 },
+      "lines": [
+        { "voice": "a", "text": "西側には、大沢崩れという大きな谷があるのだ。長さは約2キロメートル。", "speech": "西側には、大沢崩れという大きな谷があるのだ。長さは約2キロメートル。" },
+        { "voice": "b", "text": "線を引きながら数字を出すと、話が追いやすいわね。" }
+      ],
+      "overlays": [
+        { "type": "line", "coords": [[138.7255, 35.3605], [138.7195, 35.3585], [138.712, 35.3565], [138.704, 35.3545]], "color": "#ff8a1f", "width": 7, "draw": [0.1, 0.5] },
+        { "type": "label", "at": [138.712, 35.3565], "text": "大沢崩れ(概略)", "dot": true, "show": [0.3, 1] },
+        { "type": "counter", "screen": [70, 120], "caption": "谷の長さ", "prefix": "約", "value": 2, "unit": "km", "show": [0.4, 1] },
+        { "type": "note", "text": "模式図" }
+      ]
+    }
+  ]
+}

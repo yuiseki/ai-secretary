@@ -1,0 +1,38 @@
+{
+  "width": 1920, "height": 1080, "fps": 30,
+  "base": "seamlessphoto", "dem": "gsi", "exaggeration": 1.3,
+  "credits": ["線と数字は説明のための模式図(位置は概略)"],
+  "shots": [
+    {
+      "duration": 5,
+      "from": { "center": [138.7274, 35.3606], "zoom": 11.4, "pitch": 60, "bearing": 30 },
+      "to":   { "center": [138.7274, 35.3606], "zoom": 11.8, "pitch": 64, "bearing": 50 },
+      "overlays": [
+        { "type": "label", "at": [138.7274, 35.3606], "text": "富士山", "style": "tag", "show": [0.15, 1] },
+        { "type": "subtitle", "text": "地理院タイルの写真と標高で、山を斜めから見る" }
+      ]
+    },
+    {
+      "duration": 6,
+      "from": { "center": [138.712, 35.356], "zoom": 12.6, "pitch": 66, "bearing": 75 },
+      "to":   { "center": [138.716, 35.357], "zoom": 13.1, "pitch": 68, "bearing": 85 },
+      "overlays": [
+        { "type": "line", "coords": [[138.7255, 35.3605], [138.7195, 35.3585], [138.712, 35.3565], [138.704, 35.3545]],
+          "color": "#ff8a1f", "width": 7, "draw": [0.1, 0.55] },
+        { "type": "label", "at": [138.712, 35.3565], "text": "大沢崩れ(概略)", "dot": true, "show": [0.3, 1] },
+        { "type": "counter", "screen": [70, 120], "caption": "谷の長さ", "prefix": "約", "value": 2, "unit": "km", "show": [0.45, 1] },
+        { "type": "note", "text": "模式図" },
+        { "type": "subtitle", "text": "線を引きながら、数字を出す" }
+      ]
+    },
+    {
+      "duration": 4,
+      "from": { "center": [138.74, 35.37], "zoom": 10.8, "pitch": 50, "bearing": 0 },
+      "to":   { "center": [138.74, 35.37], "zoom": 10.9, "pitch": 52, "bearing": 8 },
+      "overlays": [
+        { "type": "chapter", "kicker": "第1章", "text": "章の見出しは暗くした地形の上に", "show": [0, 1] },
+        { "type": "counter", "screen": [70, 120], "caption": "工事が始まった年", "value": 1969, "from": 1950, "grouping": false, "unit": "年", "countUp": [0.2, 0.7], "show": [0.15, 1] }
+      ]
+    }
+  ]
+}

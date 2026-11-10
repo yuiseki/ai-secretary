@@ -1,0 +1,33 @@
+/* Look: dark navy UI over photo terrain, white bold text with soft shadow, purple tag labels.
+   All sizes are in px for a 1920x1080 stage; the page scales the stage to the output size. */
+:root {
+  --navy: rgba(14, 22, 40, 0.86);
+  --tag: #5b3fd6;
+  --accent: #ff8a1f;
+  --line: #4aa3ff;
+  --font: "Noto Sans CJK JP", "Noto Sans JP", sans-serif;
+}
+html, body { margin: 0; background: #000; overflow: hidden; }
+#stage { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; transform-origin: 0 0; font-family: var(--font); }
+#map { position: absolute; inset: 0; }
+#tint { position: absolute; inset: 0; background: #050a14; opacity: 0; pointer-events: none; }
+#overlay { position: absolute; inset: 0; pointer-events: none; }
+#credit { position: absolute; right: 24px; bottom: 16px; max-width: 760px; color: rgba(255,255,255,0.85);
+  font-size: 15px; line-height: 1.35; text-align: right; text-shadow: 0 0 4px rgba(0,0,0,0.9); white-space: pre-line; }
+.maplibregl-ctrl-attrib, .maplibregl-ctrl-logo { display: none !important; }
+
+.o { position: absolute; color: #fff; text-shadow: 0 2px 6px rgba(0,0,0,0.85), 0 0 2px rgba(0,0,0,0.9); font-weight: 700; white-space: pre; }
+.o.label { font-size: 34px; transform: translate(-50%, -50%); }
+.o.label.tag { background: var(--tag); padding: 4px 16px; border-radius: 6px; text-shadow: none; font-size: 32px; }
+.o.label .dot { display: inline-block; width: 14px; height: 14px; border-radius: 50%; background: #fff; margin-right: 10px; vertical-align: middle; box-shadow: 0 0 6px rgba(0,0,0,0.8); }
+.o.counter { line-height: 1; }
+.o.counter .cap { display: block; font-size: 22px; font-weight: 500; margin-bottom: 8px; opacity: 0.95; }
+.o.counter .num { font-size: 96px; letter-spacing: 1px; }
+.o.counter .unit { font-size: 40px; margin-left: 10px; }
+.o.counter .pre { font-size: 48px; margin-right: 6px; }
+.o.chapter { left: 0; right: 0; top: 40%; text-align: center; }
+.o.chapter .kicker { display: block; font-size: 30px; color: var(--accent); margin-bottom: 14px; }
+.o.chapter .title { font-size: 72px; }
+.o.note { right: 28px; top: 24px; font-size: 22px; font-weight: 500; background: rgba(0,0,0,0.45); padding: 4px 12px; border-radius: 4px; }
+.o.subtitle { left: 0; right: 0; bottom: 0; height: 150px; background: var(--navy); display: flex; align-items: center; justify-content: center;
+  text-align: center; font-size: 44px; color: #ffe94a; white-space: pre-line; border-top: 2px solid rgba(255,255,255,0.12); }

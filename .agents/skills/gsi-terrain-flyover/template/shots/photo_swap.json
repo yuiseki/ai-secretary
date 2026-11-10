@@ -1,0 +1,15 @@
+{
+  "fps": 30,
+  "shots": [
+    {
+      "duration": 6,
+      "from": { "center": [140.0, 40.0], "zoom": 12.0, "pitch": 50, "bearing": 0 },
+      "to":   { "center": [140.0, 40.0], "zoom": 12.2, "pitch": 52, "bearing": 6 },
+      "overlays": [
+        { "type": "base", "layer": "gazo1", "show": [0.45, 1], "fade": 0.2 },
+        { "type": "label", "screen": [190, 70], "text": "現在", "style": "tag", "show": [0, 0.45] },
+        { "type": "label", "screen": [260, 70], "text": "1974〜78年", "style": "tag", "show": [0.5, 1] }
+      ]
+    }
+  ]
+}
