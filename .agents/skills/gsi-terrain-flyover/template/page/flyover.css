@@ -32,7 +32,7 @@ html, body { margin: 0; background: #000; overflow: hidden; }
 .o.subtitle { left: 0; right: 0; bottom: 0; height: 180px; background: var(--navy); display: flex; align-items: center; justify-content: center;
   text-align: center; font-size: 58px; line-height: 1.25; color: #ffe94a; white-space: pre-line; border-top: 2px solid rgba(255,255,255,0.12); }
 
-.o.quote { background: rgba(10, 16, 30, 0.82); border-left: 8px solid var(--accent); padding: 18px 26px 22px; border-radius: 6px;
+.o.quote { background: rgba(10, 16, 30, 0.82); padding: 18px 26px 22px 34px; border-radius: 6px;
   white-space: normal; text-shadow: none; box-shadow: 0 6px 24px rgba(0,0,0,0.45); }
 .o.quote .src { display: block; font-size: 22px; font-weight: 500; color: #c9d6ea; margin-bottom: 10px; }
 .o.quote .q { display: block; font-size: 38px; line-height: 1.45; }
@@ -42,3 +42,29 @@ html, body { margin: 0; background: #000; overflow: hidden; }
 .o.panel .cap { display: block; font-size: 28px; margin-bottom: 10px; }
 .o.panel img { display: block; width: 100%; height: auto; border-radius: 4px; }
 .o.panel .cr { display: block; font-size: 17px; font-weight: 400; color: #c9d6ea; margin-top: 8px; text-align: right; }
+
+/* motion graphics parts */
+.o.quote .bar { position: absolute; left: 0; top: 0; bottom: 0; width: 8px; background: var(--accent); transform-origin: top; border-radius: 6px 0 0 6px; }
+.o.quote .rest { visibility: hidden; }
+.o.label .txt { display: inline-block; }
+.o.label .dot { position: relative; }
+.o.label .ring { position: absolute; inset: 0; border-radius: 50%; border: 3px solid #fff; }
+.o.counter .rule { display: block; height: 5px; background: var(--accent); margin-top: 10px; border-radius: 3px; }
+.o.chapter .title { display: inline-block; }
+.o.chapter .rule { display: block; height: 4px; margin: 22px auto 0; background: var(--accent); border-radius: 2px; }
+.o.panel .frame { display: block; overflow: hidden; border-radius: 4px; }
+.o.panel img { transform-origin: center; }
+.o.chart { background: rgba(10, 16, 30, 0.85); padding: 16px 18px 12px; border-radius: 8px; white-space: normal; text-shadow: none; box-shadow: 0 6px 24px rgba(0,0,0,0.45); }
+.o.chart .cap { display: block; font-size: 28px; margin-bottom: 4px; }
+.o.chart .cr { display: block; font-size: 17px; font-weight: 400; color: #c9d6ea; text-align: right; }
+.o.chart svg { display: block; overflow: visible; }
+.o.chart .grid { stroke: rgba(255,255,255,0.14); stroke-width: 1.5; }
+.o.chart .ytick { fill: #aab4c8; font-size: 20px; font-weight: 500; text-anchor: end; }
+.o.chart .xtick { fill: #aab4c8; font-size: 20px; font-weight: 500; text-anchor: middle; }
+.o.chart .line { fill: none; stroke: var(--accent); stroke-width: 6; stroke-linecap: round; stroke-linejoin: round; }
+.o.chart .pt { fill: var(--accent); stroke: #121a2c; stroke-width: 3; }
+.o.chart .pulse { fill: none; stroke: var(--accent); stroke-width: 3; }
+.o.chart .val { fill: #fff; font-size: 26px; font-weight: 700; text-anchor: middle; }
+.o.sticker { transform-origin: center bottom; text-shadow: none; }
+.o.sticker img { display: block; width: 100%; height: auto; filter: drop-shadow(0 6px 14px rgba(0,0,0,0.45)); }
+.o.sticker .cr { display: block; font-size: 15px; font-weight: 400; text-align: center; color: rgba(255,255,255,0.85); text-shadow: 0 0 4px #000; }

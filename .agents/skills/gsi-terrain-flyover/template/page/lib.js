@@ -147,3 +147,39 @@ export function estimateSeconds(text, cps = 6.5) {
   const n = [...text.replace(/[\s、。，,．.！？!?「」『』（）()…・]/g, '')].length;
   return Math.round((n / cps) * 100) / 100;
 }
+
+// ---- motion graphics helpers (everything is a function of time, so frames are reproducible) ----
+
+// Seconds since an overlay's window opened and until it closes. A window that runs to the end of the
+// shot never "leaves" (the cut ends it), so exits are only animated for windows closing inside the shot.
+export function phase(win, t, duration) {
+  const [t0, t1] = win ?? [0, 1];
+  const r9 = (x) => Math.round(x * 1e9) / 1e9;
+  return { since: r9((t - t0) * duration), until: t1 >= 1 ? Infinity : r9((t1 - t) * duration), on: t >= t0 && t <= t1 };
+}
+
+export function easeOutBack(x) {
+  const c1 = 1.70158, c3 = c1 + 1;
+  if (x <= 0) return 0;
+  if (x >= 1) return 1;
+  return 1 + c3 * (x - 1) ** 3 + c1 * (x - 1) ** 2;
+}
+
+// How many characters of a typewriter reveal are visible after `since` seconds at `cps` chars/second.
+export function typeCount(text, since, cps = 28) {
+  return Math.max(0, Math.min([...text].length, Math.floor(since * cps + 1e-9)));
+}
+
+// A line chart's geometry: points ([YYYY-MM, value]) into a w x h box with padding [top, right, bottom, left].
+// Returns pixel points, cumulative lengths along the line and the total length (for draw-on animation).
+export function chartGeometry(points, { w, h, pad = [20, 20, 40, 60], ymin, ymax }) {
+  const day = (s) => Date.UTC(+s.slice(0, 4), +s.slice(5, 7) - 1, 1) / 86400000;
+  const xs = points.map((p) => day(p[0])), ys = points.map((p) => p[1]);
+  const x0 = Math.min(...xs), x1 = Math.max(...xs);
+  const lo = ymin ?? Math.min(...ys), hi = ymax ?? Math.max(...ys);
+  const [pt, pr, pb, pl] = pad;
+  const pts = xs.map((x, i) => [pl + ((x - x0) / (x1 - x0 || 1)) * (w - pl - pr), pt + (1 - (ys[i] - lo) / (hi - lo || 1)) * (h - pt - pb)]);
+  const cum = [0];
+  for (let i = 1; i < pts.length; i++) cum.push(cum[i - 1] + Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]));
+  return { pts, cum, length: cum[cum.length - 1], lo, hi, plot: { x: pl, y: pt, w: w - pl - pr, h: h - pt - pb } };
+}

@@ -1,6 +1,6 @@
 // Browser side: builds a MapLibre map with GSI photo + terrain, and draws one frame at a time.
 // render.mjs calls window.FLY.init(spec) once, then window.FLY.frame(sec) for every frame.
-import { gsiToTerrarium, terrariumRGB, cameraAt, sliceLine, locate, fadeAlpha, countValue } from './lib.js';
+import { gsiToTerrarium, terrariumRGB, cameraAt, sliceLine, locate, fadeAlpha, countValue, phase, easeOutBack, ease, typeCount, chartGeometry } from './lib.js';
 
 const maplibregl = window.maplibregl;
 let map, spec, overlayEl, tintEl, terrainSpec, lastRasterSig = '';
@@ -241,36 +241,8 @@ function drawOverlays(si, shot, t, pass) {
     } else if (o.type === 'polygon') {
       map.setPaintProperty(id, 'line-opacity', a);
       map.setPaintProperty(id + '-fill', 'fill-opacity', a * (o.fillOpacity ?? 0.35));
-    } else if (o.type === 'label') {
-      let pos;
-      if (o.at) { const p = map.project(o.at); pos = { left: p.x / scale() + 'px', top: p.y / scale() + 'px' }; }
-      else pos = { left: o.screen[0] + 'px', top: o.screen[1] + 'px' };
-      const html = (o.dot ? '<span class="dot"></span>' : '') + esc(o.text);
-      el('label' + (o.style === 'tag' ? ' tag' : ''), html, { ...pos, opacity: a });
-    } else if (o.type === 'counter') {
-      const [x, y] = o.screen ?? [60, 120];
-      el('counter', (o.caption ? `<span class="cap">${esc(o.caption)}</span>` : '') +
-        (o.prefix ? `<span class="pre">${esc(o.prefix)}</span>` : '') +
-        `<span class="num">${esc(countValue(o, t))}</span>` + (o.unit ? `<span class="unit">${esc(o.unit)}</span>` : ''),
-        { left: x + 'px', top: y + 'px', opacity: a });
-    } else if (o.type === 'chapter') {
-      tint = Math.max(tint, 0.55 * a);
-      el('chapter', (o.kicker ? `<span class="kicker">${esc(o.kicker)}</span>` : '') + `<span class="title">${esc(o.text)}</span>`, { opacity: a });
-    } else if (o.type === 'note') {
-      el('note', esc(o.text), { opacity: a });
-    } else if (o.type === 'quote') {
-      // a news quote card: source and date on top, the quoted sentence below
-      const [x, y] = o.screen ?? [70, 200];
-      el('quote' + (o.marks === false ? ' plain' : ''), `<span class="src">${esc(o.source ?? '')}${o.date ? '　' + esc(o.date) : ''}</span>` +
-        `<span class="q">${esc(o.text)}</span>`, { left: x + 'px', top: y + 'px', width: (o.width ?? 760) + 'px', opacity: a });
-    } else if (o.type === 'panel') {
-      // a figure (chart PNG, photo) on screen with a caption and its credit
-      const [x, y] = o.screen ?? [1100, 160];
-      el('panel', (o.caption ? `<span class="cap">${esc(o.caption)}</span>` : '') +
-        `<img src="/${esc(o.src.replace(/^\/+/, ''))}">` + (o.credit ? `<span class="cr">${esc(o.credit)}</span>` : ''),
-        { left: x + 'px', top: y + 'px', width: (o.width ?? 720) + 'px', opacity: a });
-    } else if (o.type === 'subtitle') {
-      el('subtitle', esc(o.text), { opacity: a, ...(o.color ? { color: o.color } : {}) });
+    } else {
+      drawMotion(o, phase(o.show, t, shot.duration), t, a, (v) => { tint = Math.max(tint, v); });
     }
   });
   tintEl.style.opacity = tint;
@@ -278,6 +250,114 @@ function drawOverlays(si, shot, t, pass) {
     const hasSub = (shot.overlays || []).some((o) => o.type === 'subtitle');
     document.getElementById('credit').style.bottom = hasSub ? '196px' : '16px';
   }
+}
+
+// ---- motion graphics for the DOM overlays ----
+// Every value below is computed from the time since the overlay appeared (ph.since, seconds) and the time
+// until it leaves (ph.until), so a frame always looks the same however it is reached.
+const clamp01 = (x) => Math.max(0, Math.min(1, x));
+const outCubic = (x) => ease('out', x);
+
+function drawMotion(o, ph, t, a, setTint) {
+  if (!ph.on) { if (o.type === 'chapter') setTint(0); return; }
+  const inn = (dur, delay = 0) => clamp01((ph.since - delay) / dur);
+  const out = clamp01(ph.until / 0.3);          // 1 while shown, 0 at the moment it leaves
+  const leave = 1 - out;                         // 0..1 during the exit
+  const pos = (o) => {
+    if (o.at) { const p = map.project(o.at); return { left: p.x / scale() + 'px', top: p.y / scale() + 'px' }; }
+    return { left: (o.screen?.[0] ?? 70) + 'px', top: (o.screen?.[1] ?? 160) + 'px' };
+  };
+  if (o.type === 'label') {
+    if (o.style === 'tag') {
+      const k = 0.5 + 0.5 * easeOutBack(inn(0.45));
+      el('label tag', esc(o.text), { ...pos(o), opacity: inn(0.15) * out, transform: `translate(-50%, -50%) scale(${k})` });
+    } else {
+      const ring = (ph.since % 1.6) / 1.6;
+      const reveal = 100 * (1 - outCubic(inn(0.5, 0.15)));
+      el('label', (o.dot ? `<span class="dot"><span class="ring" style="transform:scale(${1 + ring * 2.2});opacity:${(1 - ring) * 0.8}"></span></span>` : '') +
+        `<span class="txt" style="clip-path:inset(-20% ${reveal}% -20% 0)">${esc(o.text)}</span>`,
+        { ...pos(o), opacity: inn(0.15) * out });
+    }
+  } else if (o.type === 'counter') {
+    const [x, y] = o.screen ?? [70, 160];
+    const up = (1 - outCubic(inn(0.45))) * 40;
+    el('counter', (o.caption ? `<span class="cap" style="opacity:${inn(0.3, 0.1)}">${esc(o.caption)}</span>` : '') +
+      (o.prefix ? `<span class="pre">${esc(o.prefix)}</span>` : '') +
+      `<span class="num">${esc(countValue(o, t))}</span>` + (o.unit ? `<span class="unit">${esc(o.unit)}</span>` : '') +
+      `<span class="rule" style="width:${outCubic(inn(0.5, 0.2)) * 100}%"></span>`,
+      { left: x + 'px', top: y + 'px', opacity: inn(0.2) * out, transform: `translateY(${up - leave * 20}px)` });
+  } else if (o.type === 'chapter') {
+    setTint(0.55 * inn(0.4) * out);
+    const reveal = 100 * (1 - outCubic(inn(0.6, 0.2)));
+    el('chapter',
+      (o.kicker ? `<span class="kicker" style="letter-spacing:${0.6 - 0.45 * outCubic(inn(0.6))}em;opacity:${inn(0.3)}">${esc(o.kicker)}</span>` : '') +
+      `<span class="title" style="clip-path:inset(-20% ${reveal}% -20% 0)">${esc(o.text)}</span>` +
+      `<span class="rule" style="width:${outCubic(inn(0.7, 0.1)) * 640}px"></span>`,
+      { opacity: out, transform: `translateY(${-leave * 24}px)` });
+  } else if (o.type === 'note') {
+    el('note', esc(o.text), { opacity: inn(0.3) * out });
+  } else if (o.type === 'quote') {
+    const [x, y] = o.screen ?? [70, 160];
+    const n = typeCount(o.text, Math.max(0, ph.since - 0.35), o.cps ?? 30);
+    const chars = [...o.text];
+    el('quote' + (o.marks === false ? ' plain' : ''),
+      `<span class="bar" style="transform:scaleY(${outCubic(inn(0.35))})"></span>` +
+      `<span class="src" style="opacity:${inn(0.3, 0.15)}">${esc(o.source ?? '')}${o.date ? '　' + esc(o.date) : ''}</span>` +
+      `<span class="q"><span>${esc(chars.slice(0, n).join(''))}</span><span class="rest">${esc(chars.slice(n).join(''))}</span></span>`,
+      { left: x + 'px', top: y + 'px', width: (o.width ?? 760) + 'px', opacity: inn(0.25) * out,
+        transform: `translateX(${-(1 - outCubic(inn(0.45))) * 80 - leave * 60}px)` });
+  } else if (o.type === 'panel') {
+    const [x, y] = o.screen ?? [1090, 150];
+    const wipe = 100 * (1 - outCubic(inn(0.55)));
+    const zoom = 1.06 - 0.06 * outCubic(inn(1.2)) + 0.03 * clamp01(ph.since / 12);
+    el('panel', (o.caption ? `<span class="cap" style="opacity:${inn(0.3, 0.25)}">${esc(o.caption)}</span>` : '') +
+      `<span class="frame"><img src="/${esc(o.src.replace(/^\/+/, ''))}" style="transform:scale(${zoom})"></span>` +
+      (o.credit ? `<span class="cr" style="opacity:${inn(0.3, 0.4)}">${esc(o.credit)}</span>` : ''),
+      { left: x + 'px', top: y + 'px', width: (o.width ?? 720) + 'px', opacity: out, clipPath: `inset(0 ${wipe}% 0 0)` });
+  } else if (o.type === 'chart') {
+    drawChart(o, ph, inn, out);
+  } else if (o.type === 'sticker') {
+    // an illustration that pops in, then floats gently
+    const k = easeOutBack(inn(0.5));
+    const bob = Math.sin(ph.since * 2.2) * 6, tilt = Math.sin(ph.since * 1.4) * 2.5 + (1 - k) * -12;
+    el('sticker', `<img src="/${esc(o.src.replace(/^\/+/, ''))}">` + (o.credit ? `<span class="cr">${esc(o.credit)}</span>` : ''),
+      { left: (o.screen?.[0] ?? 1400) + 'px', top: (o.screen?.[1] ?? 500) + 'px', width: (o.width ?? 320) + 'px',
+        opacity: inn(0.15) * out, transform: `translateY(${bob}px) rotate(${tilt}deg) scale(${0.3 + 0.7 * k})` });
+  } else if (o.type === 'subtitle') {
+    el('subtitle', esc(o.text), { opacity: a, ...(o.color ? { color: o.color } : {}),
+      transform: `translateY(${(1 - outCubic(inn(0.18))) * 14}px)` });
+  }
+}
+
+// A line chart drawn in SVG: the card wipes in, the grid fades in, then the line draws itself and
+// the points and value labels pop as the line reaches them.
+function drawChart(o, ph, inn, out) {
+  const W = o.width ?? 780, H = o.height ?? 430;
+  const g = chartGeometry(o.points, { w: W, h: H, pad: [36, 34, 48, 78], ymin: o.ymin, ymax: o.ymax });
+  const p = ease('inOut', clamp01((ph.since - 0.5) / (o.drawSec ?? 2.4)));
+  const drawn = p * g.length;
+  const fmt = (v) => `${(+v).toLocaleString('en-US', { maximumFractionDigits: o.decimals ?? 0 })}${o.unit ?? ''}`;
+  const ticks = o.yticks ?? [];
+  const yOf = (v) => g.plot.y + (1 - (v - g.lo) / (g.hi - g.lo)) * g.plot.h;
+  let svg = `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}"><g style="opacity:${inn(0.4, 0.2)}">`;
+  for (const v of ticks) svg += `<line x1="${g.plot.x}" x2="${g.plot.x + g.plot.w}" y1="${yOf(v)}" y2="${yOf(v)}" class="grid"/><text x="${g.plot.x - 12}" y="${yOf(v) + 7}" class="ytick">${esc(fmt(v))}</text>`;
+  for (const [lab, idx] of o.xlabels ?? []) svg += `<text x="${g.pts[idx][0]}" y="${H - 12}" class="xtick">${esc(lab)}</text>`;
+  svg += `</g><path d="M${g.pts.map((q) => q.map((v) => v.toFixed(1)).join(',')).join('L')}" class="line" style="stroke-dasharray:${g.length};stroke-dashoffset:${g.length - drawn}"/>`;
+  g.pts.forEach((q, i) => {
+    // pop as the line passes the point; once the line is complete, the last points finish popping by time
+    const reach = p >= 1 ? ph.since - 0.5 - (o.drawSec ?? 2.4) + 0.34 : (drawn - g.cum[i]) / 300 * 3;
+    if (drawn < g.cum[i] - 1e-6) return;
+    const v = clamp01(reach * 3), k = 0.4 + 0.6 * easeOutBack(v);
+    const since = v / 3;
+    svg += `<circle cx="${q[0]}" cy="${q[1]}" r="${7 * k}" class="pt"/>`;
+    if ((o.labels ?? []).includes(i)) svg += `<text x="${q[0]}" y="${q[1] - 18}" class="val" style="opacity:${clamp01(since * 3)}">${esc(fmt(o.points[i][1]))}</text>`;
+  });
+  if (p >= 1) { const last = g.pts[g.pts.length - 1], r = (ph.since % 1.4) / 1.4; svg += `<circle cx="${last[0]}" cy="${last[1]}" r="${8 + r * 22}" class="pulse" style="opacity:${(1 - r) * 0.7}"/>`; }
+  svg += '</svg>';
+  const [x, y] = o.screen ?? [1090, 150];
+  el('chart', (o.caption ? `<span class="cap" style="opacity:${inn(0.3, 0.2)}">${esc(o.caption)}</span>` : '') + svg +
+    (o.credit ? `<span class="cr" style="opacity:${inn(0.3, 0.4)}">${esc(o.credit)}</span>` : ''),
+    { left: x + 'px', top: y + 'px', width: W + 'px', opacity: out, clipPath: `inset(0 ${100 * (1 - outCubic(inn(0.55)))}% 0 0)` });
 }
 
 const scale = () => spec.width / 1920;

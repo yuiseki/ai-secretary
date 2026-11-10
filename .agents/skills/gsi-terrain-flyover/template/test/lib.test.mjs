@@ -120,3 +120,35 @@ test('writeWav and parseWav round-trip 16-bit mono PCM', () => {
   assert.deepEqual([...w.samples], [...s]);
   assert.ok(Math.abs(w.seconds - 5 / 24000) < 1e-12);
 });
+
+import { phase, easeOutBack, typeCount, chartGeometry } from '../page/lib.js';
+
+test('phase gives seconds since the overlay appeared and until it leaves', () => {
+  assert.deepEqual(phase([0.2, 0.8], 0.5, 10), { since: 3, until: 3, on: true });
+  assert.equal(phase([0.2, 0.8], 0.1, 10).on, false);
+  // no window: shown for the whole shot, never leaves
+  assert.deepEqual(phase(undefined, 0.5, 4), { since: 2, until: Infinity, on: true });
+  // a window ending at 1 does not count down to an exit (the cut ends it)
+  assert.equal(phase([0.2, 1], 0.9, 10).until, Infinity);
+});
+
+test('easeOutBack overshoots then settles at 1', () => {
+  assert.equal(easeOutBack(0), 0);
+  assert.ok(Math.abs(easeOutBack(1) - 1) < 1e-12);
+  assert.ok(Math.max(...[0.5, 0.6, 0.7, 0.8].map(easeOutBack)) > 1);
+});
+
+test('typeCount reveals characters at a steady rate', () => {
+  assert.equal(typeCount('あいうえお', 0, 10), 0);
+  assert.equal(typeCount('あいうえお', 0.25, 10), 2);
+  assert.equal(typeCount('あいうえお', 9, 10), 5);
+});
+
+test('chartGeometry maps points into the plot box and measures the path', () => {
+  const g = chartGeometry([['2021-01', 100], ['2021-07', 200], ['2022-01', 150]], { w: 200, h: 100, pad: [10, 10, 10, 10], ymin: 100, ymax: 200 });
+  assert.deepEqual(g.pts[0], [10, 90]);
+  assert.deepEqual(g.pts[1].map(Math.round), [Math.round(10 + 180 * (181 / 365)), 10]);
+  assert.ok(Math.abs(g.pts[2][0] - 190) < 1e-9);
+  assert.ok(g.length > 180);
+  assert.ok(Math.abs(g.cum[2] - g.length) < 1e-9);
+});
