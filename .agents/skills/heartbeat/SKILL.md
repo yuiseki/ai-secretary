@@ -19,7 +19,7 @@ description: 30分ごとに秘書モードで Yamato/Gmail/Tasks/Calendar を巡
 
 1. `.agents/skills/weather/SKILL.md` で天気を取得
 2. `.agents/skills/news/SKILL.md` でニュースを取得
-3. `.agents/skills/gog-gmail/SKILL.md` および `.agents/skills/gog-calendar/SKILL.md` で情報を取得
+3. `.agents/skills/gog/references/gmail.md` および `.agents/skills/gog/references/calendar.md` で情報を取得
 4. `.agents/skills/hatebu/SKILL.md` (`hatebu ls --json`) でブックマークを取得
 5. `.agents/skills/gyazo/SKILL.md` (`gyazo ls --limit 20 --json`) でキャプチャを取得
 6. `.agents/skills/gh-check-notification/SKILL.md` および `.agents/skills/gh-check-activity/SKILL.md` で GitHub 状況を取得
@@ -149,7 +149,7 @@ find /home/yuiseki/Workspaces/.ai-secretary/heartbeat/personalization-rules -nam
 8. `yamato-check` を実行する。
 
 - 明日以降のヤマト通知を確認する。
-- `.agents/skills/gog-calendar/SKILL.md` で明日の予定を確認する。
+- `.agents/skills/gog/references/calendar.md` で明日の予定を確認する。
 - **既に受取日時を変更済みの場合はスキップする。**
 - 受取時間にズレがあれば、変更案をユーザーに提示し、承認を得てから `.agents/skills/yamato-change/SKILL.md` を実行する。
 - 変更を行った場合は `yuiseki@gmail.com` に完了通知を送る。

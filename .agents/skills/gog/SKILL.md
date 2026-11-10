@@ -1,97 +1,46 @@
 ---
 name: gog
-description: Operate the gog CLI for Gmail, Calendar, Drive, and related Google services. Use when a user asks to run or debug gog commands, inspect flags, automate gog workflows, or validate auth/output behavior with real command execution.
+description: >-
+  gog CLI で Gmail、Google Calendar、Google Tasks、Drive を読み書きする。
+  「未読メールを確認して」「今日の予定を見たい」「ToDo を追加して」「メール確認してタスク更新して」
+  のような依頼や、gog の認証・TTY・keyring のエラーを直すときに使う。
+argument-hint: "[gmail|calendar|tasks|drive] [依頼内容]"
 ---
 
-# Gog Skill
+# gog
 
-Use this skill to execute `gog` commands safely and reliably in this repo.
+Arguments: `$ARGUMENTS`
 
-## Preflight
+最初の語がサービスを指していれば、その手順だけを読む。無ければ依頼から判断する。
 
-1. Verify binary and command tree.
-```bash
-./bin/gog --help
-./bin/gog schema --help
-```
-2. Verify config and keyring backend.
-```bash
-./bin/gog config path
-./bin/gog auth status
-./bin/gog auth keyring
-```
-3. Set account explicitly for API commands.
-```bash
-./bin/gog --account <email> gmail --help
-```
+| サービス | 手順 |
+|---|---|
+| Gmail (未読確認、検索、最新順) | [references/gmail.md](references/gmail.md) |
+| Calendar (今日・明日の予定) | [references/calendar.md](references/calendar.md) |
+| Tasks (追加、更新、完了、メール起点のタスク) | [references/tasks.md](references/tasks.md) |
+| Drive ほか | `gog <group> --help` から始める |
 
-## Auth and TTY Rules
+## この環境の前提 (2026-11-10 に確認)
 
-- Prefer `--account <email>` on every API command.
-- In this environment (`keyring_backend=file`), token reads can fail in non-TTY sessions with:
-  `no TTY available for keyring file backend password prompt`.
-- When that happens, run the command in a TTY session and submit passphrase interactively.
-- If running fully non-interactive, set a usable `GOG_KEYRING_PASSWORD` value for the configured keyring.
+- バイナリは `/home/yuiseki/bin/gog` (v0.11.0)。`./bin/gog` は無い。
+- アカウントは `yuiseki@gmail.com`。API コマンドには毎回 `--account` を付ける。
+- config は `/home/yuiseki/.config/gogcli/config.json`、keyring backend は `file`。
+- 非 TTY ではトークンを読めずに次のエラーになることがある。
+  `no TTY available for keyring file backend password prompt; set GOG_KEYRING_PASSWORD`
+  TTY で実行してパスフレーズを入れるか、`GOG_KEYRING_PASSWORD` を設定する。
+  `gog auth status` と `gog auth keyring` で状態を確かめられる。
 
-## Output Rules
+## 共通の使い方
 
-- Use `--json` for automation and agents.
-- Use `--plain` for stable TSV output.
-- Use rich text only for human inspection.
-- Add `--no-input` in CI/automation.
-
-## Safe Execution Order
-
-1. Inspect help/schema first.
-2. Run read commands before write commands.
-3. For write commands, run `--dry-run` first.
-4. Use `--force` only when the user explicitly wants to skip confirmations.
-
-## Verified Command Patterns
-
-The following patterns were validated against `./bin/gog` in this repository.
-
-### Discovery
+- エージェントからは `--json --no-input` を基本にする。人が読むなら `--plain` (TSV)。
+- 読み取りを先に実行して疎通を確かめ、書き込みは後にする。
+- 書き込み (`send`、`tasks add/update/done` など) は先に `--dry-run` を付けて確かめる。
+  `--force` は本人が確認の省略を求めたときだけ。
+- 0 件を失敗として扱いたいときは `--fail-empty` (0 件で exit 3)。
+- TTY 実行ではパスフレーズのプロンプトが標準出力に混ざることがあるので、
+  JSON を読む前に `sed -n '/^{/,$p'` で先頭のノイズを捨ててから `jq` に渡す。
+- フラグが分からなければ `gog <group> <command> --help` を見る。
 
 ```bash
-./bin/gog gmail --help
-./bin/gog calendar --help
-./bin/gog drive --help
-./bin/gog tasks --help
-./bin/gog send --help
-./bin/gog ls --help
-./bin/gog open --help
+/home/yuiseki/bin/gog --account yuiseki@gmail.com --json --no-input <group> <command...>
 ```
-
-### Read Operations
-
-```bash
-./bin/gog --account <email> gmail labels list --plain
-./bin/gog --account <email> gmail search 'newer_than:1d' --max 1 --plain
-./bin/gog --account <email> calendar events primary --today --max 1 --plain
-./bin/gog --account <email> drive ls --max 1 --plain
-./bin/gog time now --json
-```
-
-### Write Operation (Dry Run First)
-
-```bash
-./bin/gog --dry-run --account <email> send --to <email> --subject 'dry run test' --body 'hello' --plain
-```
-
-## Troubleshooting
-
-- `missing --account`: add `--account <email>` or set `GOG_ACCOUNT`.
-- `no TTY available for keyring file backend password prompt`: run in TTY or provide `GOG_KEYRING_PASSWORD`.
-- `unknown flag`: check command-local help (`./bin/gog <group> <command> --help`).
-- Empty results should be explicit in automation: add `--fail-empty` where supported (for example `gmail search`, `calendar events`).
-
-## Agent Defaults
-
-For scripted runs, prefer:
-
-```bash
-./bin/gog --account <email> --json --no-input <command...>
-```
-
-Then narrow payloads with command-level filters (for example `--max`, `--fields`, `--query`) and parse with `jq` only after validating output shape.
