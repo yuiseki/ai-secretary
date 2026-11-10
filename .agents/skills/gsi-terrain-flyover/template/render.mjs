@@ -108,7 +108,9 @@ if (stills) {
   } else if (narration.wav) {
     console.error('note: --from/--to renders the picture only (no audio)');
   }
-  const r = spawnSync('ffmpeg', [...ff, ...audio, '-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-crf', '18', '-movflags', '+faststart', mp4], { stdio: 'inherit' });
+  const r = spawnSync('ffmpeg', [...ff, ...audio, '-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-crf', '18',
+    // cap the peaks: uncapped CRF hit 46 Mbps and players stalled mid-video; level 4.1 + 2 s GOP play everywhere
+    '-maxrate', '20M', '-bufsize', '40M', '-profile:v', 'high', '-level:v', '4.1', '-g', String(fps * 2), '-movflags', '+faststart', mp4], { stdio: 'inherit' });
   if (r.status !== 0) { console.error('ffmpeg failed'); process.exit(1); }
   console.log(`video: ${mp4}`);
 }
