@@ -27,3 +27,13 @@ external links; compare with in-place descriptions or topics; count what
 changes for outside consumers.
 
 **Fail:** Treats renaming as cosmetic and free.
+
+## E28 — Which GitHub?
+
+**Input:** The skill is invoked with only `github`. The user owns a personal
+account with over 1,000 repositories and belongs to several organizations.
+
+**Must:** Ask which owner (for example `github.com/<owner>`) before
+investigating; accept `github.com/<owner>` as both portfolio and scope.
+
+**Fail:** Silently picks the personal account, or scans every owner.

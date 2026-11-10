@@ -8,9 +8,9 @@ description: >-
   load, invisible coordination costs, exceptions, ownership, actual and latent
   value, and safe reduction alternatives. Produces evidence-based proposals for
   human decision; never changes live systems.
-argument-hint: "[aws|github|slack|skills|other] [scope]"
+argument-hint: "[aws|github.com/<owner>|slack|skills|other] [scope]"
 metadata:
-  version: "3.2.0"
+  version: "3.3.0"
 ---
 
 # ultra-deep-reduction
@@ -95,21 +95,24 @@ obligations appear. Report the investigation's own cost.
 
 Arguments: `$ARGUMENTS`
 
-The first word picks the portfolio; the rest is the scope (an org, account,
-workspace, directory, channel prefix, or free text). Read only the matching
-playbook:
+The first word picks the portfolio, either as a keyword or as a URL-like
+target that also names the scope; the rest narrows the scope. Read only the
+matching playbook:
 
-| First word | Playbook |
-|---|---|
-| `aws`, `s3` | [AWS accounts and S3](references/aws-portfolio.md) |
-| `github`, `repos` | [GitHub repositories](references/github-portfolio.md) |
-| `slack`, `chat`, `teams`, `discord` | [Slack and chat channels](references/slack-portfolio.md) |
-| `skills`, `agent-skills` | [Agent skills](references/agent-skills-portfolio.md) |
-| `other`, `saas`, `data`, `ops`, `policy` | [Other domains](references/other-domains.md) |
+| First word | Example | Playbook |
+|---|---|---|
+| `aws`, `s3`, `s3://…`, an account ID | `s3://bucket-prefix` | [AWS accounts and S3](references/aws-portfolio.md) |
+| `github`, `repos`, `github.com/<owner>` | `github.com/yuiseki` | [GitHub repositories](references/github-portfolio.md) |
+| `slack`, `chat`, `teams`, `discord`, `<ws>.slack.com` | `slack #proj-*` | [Slack and chat channels](references/slack-portfolio.md) |
+| `skills`, `agent-skills`, a skills directory | `skills .agents/skills` | [Agent skills](references/agent-skills-portfolio.md) |
+| `other`, `saas`, `data`, `ops`, `policy` | `saas` | [Other domains](references/other-domains.md) |
 
-If the arguments are empty, unrecognized, or the placeholder above was not
-substituted, infer the portfolio from the request; if still unclear, ask which
-one before investigating. Test cases: [evals/README.md](evals/README.md).
+A bare keyword often leaves the owner unclear: `github` alone could mean a
+personal account or any of several organizations, each with hundreds of
+repositories. If the scope is not named, ask for it (for example
+`github.com/<owner>`) before investigating. If the arguments are empty,
+unrecognized, or the placeholder above was not substituted, infer the portfolio
+from the request; if still unclear, ask. Test cases: [evals/README.md](evals/README.md).
 
 ## Before answering
 

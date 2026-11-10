@@ -8,7 +8,7 @@ unsupported deletion, and does not perform mutations.
 
 - [core.md](core.md): E01–E14 and E27, general and AWS-centred cases
 - [freeze-and-observe.md](freeze-and-observe.md): E17–E20
-- [github.md](github.md): E15–E16
+- [github.md](github.md): E15–E16, E28
 - [slack.md](slack.md): E21–E23
 - [agent-skills.md](agent-skills.md): E24–E26
 
