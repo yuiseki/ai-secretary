@@ -7,6 +7,7 @@ description: JLCPCB で基板の製造と実装 (PCBA) を頼むときの部品�
 
 【部品選定・実装ルール】
 ・実装はJLCPCB。部品はBasic Partsのみ
+・Extended Partsは、ユーザーが明示的に許可したときだけ扱ってよい。許可が無いうちは、Extendedの部品を候補の表に入れない
 ・PCBAに載せる部品はLCSCで豊富な在庫があるもの
 ・手はんだ部品は秋月電子で在庫があるもの
 ・小さい部品はPCBAに任せること
