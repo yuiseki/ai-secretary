@@ -1,9 +1,9 @@
 // Browser side: builds a MapLibre map with GSI photo + terrain, and draws one frame at a time.
 // render.mjs calls window.FLY.init(spec) once, then window.FLY.frame(sec) for every frame.
-import { gsiToTerrarium, terrariumRGB, cameraAt, sliceLine, locate, fadeAlpha, countValue, phase, easeOutBack, ease, typeCount, chartGeometry } from './lib.js';
+import { gsiToTerrarium, terrariumRGB, cameraAt, sliceLine, locate, fadeAlpha, countValue, phase, easeOutBack, ease, typeCount, chartGeometry, mouthOpenAt, blinkAt, reactionAt } from './lib.js';
 
 const maplibregl = window.maplibregl;
-let map, spec, overlayEl, tintEl, terrainSpec, lastRasterSig = '';
+let map, spec, overlayEl, tintEl, terrainSpec, lastRasterSig = '', nowSec = 0;
 
 const BASES = {
   // 地理院タイル 全国最新写真(シームレス)。世界の低ズームは衛星モザイクで埋まっている
@@ -248,7 +248,11 @@ function drawOverlays(si, shot, t, pass) {
   tintEl.style.opacity = tint;
   if (pass === 'dom') {
     const hasSub = (shot.overlays || []).some((o) => o.type === 'subtitle');
-    document.getElementById('credit').style.bottom = hasSub ? '196px' : '16px';
+    const credit = document.getElementById('credit');
+    credit.style.bottom = hasSub ? '196px' : '16px';
+    // the reaction wipe sits in the bottom right corner; move the credits to the left out of its way
+    const left = !!spec.reaction && (spec.reaction.side ?? 'right') === 'right';
+    Object.assign(credit.style, left ? { left: '24px', right: 'auto', textAlign: 'left' } : { left: 'auto', right: '24px', textAlign: 'right' });
   }
 }
 
@@ -323,6 +327,8 @@ function drawMotion(o, ph, t, a, setTint) {
     el('sticker', `<img src="/${esc(o.src.replace(/^\/+/, ''))}">` + (o.credit ? `<span class="cr">${esc(o.credit)}</span>` : ''),
       { left: (o.screen?.[0] ?? 1400) + 'px', top: (o.screen?.[1] ?? 500) + 'px', width: (o.width ?? 320) + 'px',
         opacity: inn(0.15) * out, transform: `translateY(${bob}px) rotate(${tilt}deg) scale(${0.3 + 0.7 * k})` });
+  } else if (o.type === 'reaction') {
+    drawReaction(o, ph.since);
   } else if (o.type === 'subtitle') {
     el('subtitle', esc(o.text), { opacity: a, ...(o.color ? { color: o.color } : {}),
       transform: `translateY(${(1 - outCubic(inn(0.18))) * 14}px)` });
@@ -394,6 +400,7 @@ function rasterSignature(si, shot, t) {
 }
 
 async function frame(sec) {
+  nowSec = sec;
   const { index, t } = locate(spec.shots, sec);
   const shot = spec.shots[index];
   const cam = cameraAt(keysOf(shot), t, shot.ease ?? 'inOut');
@@ -420,3 +427,27 @@ function totalSeconds() { return spec.shots.reduce((a, s) => a + s.duration, 0);
 
 window.FLY = { init, frame, totalSeconds, get map() { return map; } };
 window.FLY_READY = true;
+
+// Reaction wipe: the two narrators' portraits stand on the subtitle band. The speaker is bright and
+// slightly larger, opens the mouth where the voice is loud and hops a little when a line starts; the
+// listener is dimmed and shows the line's "react" face. Both blink on their own rhythm.
+function drawReaction(o, since) {
+  const cfg = spec.reaction, chars = cfg.characters ?? {};
+  const r = reactionAt(o.segs, since);
+  const order = cfg.order ?? Object.keys(chars);
+  const h = cfg.height ?? 300, fps = spec.fps ?? 30;
+  let html = '';
+  for (const key of order) {
+    const c = chars[key]; if (!c) continue;
+    const speaking = r && r.seg.speaker === key;
+    const face = speaking ? r.seg.face : (r ? r.seg.react : 'normal');
+    const mouth = speaking && mouthOpenAt(r.seg.env, r.since, fps) ? 'o' : 'c';
+    const eyes = blinkAt(nowSec, c.seed ?? key) ? 'c' : 'o';
+    const hop = speaking ? Math.sin(Math.PI * clamp01(r.since / 0.28)) * 12 : 0;
+    const k = speaking || !r ? 1 : 0.9;
+    html += `<img src="/${esc(c.sprites.replace(/^\/+|\/+$/g, ''))}/${face}_${eyes}_${mouth}.png" style="height:${h}px;` +
+      `transform:translateY(${-hop}px) scale(${k});filter:drop-shadow(0 4px 10px rgba(0,0,0,0.5))${speaking || !r ? '' : ' brightness(0.72) saturate(0.8)'}">`;
+  }
+  const side = cfg.side ?? 'right';
+  el('reaction', html, { [side]: (cfg.margin ?? 16) + 'px', bottom: (cfg.bottom ?? 150) + 'px' });
+}

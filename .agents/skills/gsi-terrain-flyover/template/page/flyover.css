@@ -68,3 +68,5 @@ html, body { margin: 0; background: #000; overflow: hidden; }
 .o.sticker { transform-origin: center bottom; text-shadow: none; }
 .o.sticker img { display: block; width: 100%; height: auto; filter: drop-shadow(0 6px 14px rgba(0,0,0,0.45)); }
 .o.sticker .cr { display: block; font-size: 15px; font-weight: 400; text-align: center; color: rgba(255,255,255,0.85); text-shadow: 0 0 4px #000; }
+.o.reaction { display: flex; align-items: flex-end; gap: 0; text-shadow: none; }
+.o.reaction img { display: block; transform-origin: center bottom; filter: drop-shadow(0 4px 10px rgba(0,0,0,0.5)); }

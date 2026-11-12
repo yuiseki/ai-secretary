@@ -183,3 +183,49 @@ export function chartGeometry(points, { w, h, pad = [20, 20, 40, 60], ymin, ymax
   for (let i = 1; i < pts.length; i++) cum.push(cum[i - 1] + Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]));
   return { pts, cum, length: cum[cum.length - 1], lo, hi, plot: { x: pl, y: pt, w: w - pl - pr, h: h - pt - pb } };
 }
+
+// Reaction wipe (character portraits in a corner).
+// Loudness of a voice clip per video frame, scaled so the loudest frame is 1 (2 decimals).
+export function levelEnvelope(samples, rate, fps = 30) {
+  const per = rate / fps, n = Math.floor(samples.length / per);
+  const rms = [];
+  for (let f = 0; f < n; f++) {
+    let s = 0; const a = Math.round(f * per), b = Math.round((f + 1) * per);
+    for (let i = a; i < b; i++) s += samples[i] * samples[i];
+    rms.push(Math.sqrt(s / Math.max(1, b - a)));
+  }
+  const max = Math.max(0, ...rms);
+  return rms.map((v) => (max > 0 ? Math.round((v / max) * 100) / 100 : 0));
+}
+
+// Mouth open when the voice at time t (seconds since the clip started) is louder than thr.
+export function mouthOpenAt(env, t, fps = 30, thr = 0.15) {
+  const i = Math.floor(t * fps);
+  return i >= 0 && i < env.length && env[i] > thr;
+}
+
+function hash01(str) {
+  let h = 2166136261;
+  for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 16777619); }
+  return ((h >>> 0) % 10000) / 10000;
+}
+
+// Eyes closed for `dur` seconds once per cycle; cycles last 0.7x to 1.3x `period`, varying per cycle
+// and per character (seed), so two characters never blink in step. Pure function of time.
+export function blinkAt(t, seed, { period = 4, dur = 0.13 } = {}) {
+  if (t < 0) return false;
+  let start = hash01(seed) * period, k = 0;
+  while (start + period * 1.3 < t && k < 100000) { start += period * (0.7 + 0.6 * hash01(seed + ':' + k)); k++; }
+  // step forward through cycles until the one containing t
+  for (;;) {
+    const len = period * (0.7 + 0.6 * hash01(seed + ':' + k));
+    if (t < start + len) return t >= start && t < start + dur;
+    start += len; k++;
+  }
+}
+
+// The spoken line at time t (segments sorted by t0, end exclusive), with seconds since it began.
+export function reactionAt(segs, t) {
+  for (const seg of segs) if (t >= seg.t0 && t < seg.t1) return { seg, since: t - seg.t0 };
+  return null;
+}

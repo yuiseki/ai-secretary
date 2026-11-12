@@ -3,7 +3,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
-import { layoutLines, wrapSubtitle, estimateSeconds } from './page/lib.js';
+import { layoutLines, wrapSubtitle, estimateSeconds, levelEnvelope } from './page/lib.js';
 
 // Speaker colors for subtitles when a voice does not set one (yellow, then light red, ...).
 const COLORS = ['#ffe94a', '#ff8f8f', '#8fd3ff', '#b8f28f'];
@@ -86,6 +86,20 @@ export async function prepareNarration(spec, outDir, { noVoice = false } = {}) {
           color: voices[vname].color ?? COLORS[names.indexOf(vname) % COLORS.length] });
       if (clips[i].samples) placed.push({ at: t0 + lay.starts[i], samples: clips[i].samples });
     });
+    // reaction wipe: one overlay per shot holding every line's speaker, faces and loudness (seconds in the shot)
+    if (spec.reaction) {
+      const segs = lines.map((ln, i) => ({
+        t0: lay.starts[i], t1: i < lines.length - 1 ? lay.starts[i + 1] : lay.duration,
+        speaker: ln.voice ?? names[0], face: ln.face ?? 'normal', react: ln.react ?? 'normal',
+        env: clips[i].samples ? levelEnvelope(clips[i].samples, clips[i].rate, spec.fps ?? 30) : [] }));
+      // fail now, not with a broken image mid-render: every face must have its sprites
+      for (const g of segs) for (const [who, face] of [[g.speaker, g.face], ...Object.keys(spec.reaction.characters ?? {}).filter((k) => k !== g.speaker).map((k) => [k, g.react])]) {
+        const dir = spec.reaction.characters?.[who]?.sprites;
+        if (dir && !fs.existsSync(path.join(process.cwd(), dir, `${face}_o_o.png`)))
+          throw new Error(`reaction: no sprite "${face}" for ${who} (looked for ${path.join(dir, face + '_o_o.png')})`);
+      }
+      shot.overlays.push({ type: 'reaction', show: [0, 1], fade: 0, segs });
+    }
     t0 += shot.duration;
   }
   const credits = [...used].map((v) => `音声：VOICEVOX:${voices[v].name ?? v}`);
