@@ -14,6 +14,7 @@ shots/*.json ─▶ voice.mjs (VOICEVOX) ─▶ render.mjs ─▶ page/ (MapLibr
 - 1 コマごとにカメラを置き、タイルが全部読み終わるまで待ってから撮る。読み込み途中の画が映らず、同じ JSON からは同じ動画が出る。
 - 見た目の文法 (何をどう重ねるか) は `references/look.md`。手本にした映像を見て書き出したもの。
 - JSON の書き方は `references/shots.md`。声と字幕は `references/narration.md` (手本を測った数字と、VOICEVOX の速さの合わせ方)。タイルの種類と出典の書き方は `references/gsi-tiles.md`。困ったら `references/troubleshooting.md`。
+- 話し手の立ち絵を右下に出すリアクションワイプ (表情、口の開け閉め、まばたき) は `references/reaction.md`。
 - 映像の技法の用語 (カット、トランジション、カメラワーク、合成、テロップ、音) と、このテンプレートでどこまでできるかは `references/techniques/README.md`。
 
 ## 1. プロジェクトを作る
