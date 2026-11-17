@@ -12,6 +12,8 @@ shots/*.json ─▶ voice.mjs (VOICEVOX) ─▶ render.mjs ─▶ page/ (MapLibr
 ```
 
 - 1 コマごとにカメラを置き、タイルが全部読み終わるまで待ってから撮る。読み込み途中の画が映らず、同じ JSON からは同じ動画が出る。
+- 企画から章別書き出し・素材・配布までの手順は `references/production-workflow.md`。複数章や写真・地図を使うときに読む。
+- カメラ速度、章境界、地名の重なりと写真の線の確認は `references/camera-and-label-review.md`。移動や地名を含むときに読む。
 - 見た目の文法 (何をどう重ねるか) は `references/look.md`。手本にした映像を見て書き出したもの。
 - JSON の書き方は `references/shots.md`。声と字幕は `references/narration.md` (手本を測った数字と、VOICEVOX の速さの合わせ方)。タイルの種類と出典の書き方は `references/gsi-tiles.md`。困ったら `references/troubleshooting.md`。
 - 話し手の立ち絵を右下に出すリアクションワイプ (表情、口の開け閉め、まばたき) は `references/reaction.md`。
@@ -21,7 +23,7 @@ shots/*.json ─▶ voice.mjs (VOICEVOX) ─▶ render.mjs ─▶ page/ (MapLibr
 
 1. `template/` の中身を作業フォルダにコピーする (置き場は `~/Workspaces/tmp/<名前>/` など。`.gitignore` を含む)。
 2. `npm install`、続けて `npx playwright install chromium-headless-shell`。
-3. `npm test` (補助関数の単体テスト) が通ることを確かめる。
+3. プロジェクトの既存の確認手順と、必要な実行環境を確認する。
 
 前提: Node.js 20 以上、ffmpeg、日本語フォント (`fc-list :lang=ja`。Noto Sans CJK JP を使う)。声を付けるなら VOICEVOX のエンジン (`curl http://127.0.0.1:50021/version`。無ければ feed-news-video スキルの Docker の手順)。GPU があれば速い (下の 3)。
 
@@ -61,18 +63,18 @@ systemd-run --user --scope -q -p MemoryMax=8G -p MemorySwapMax=0 -p CPUQuota=400
 
 セリフ: ショットに `lines` (`[{ "voice": "a", "text": "…", "speech": "読み" }]`) を書くと、声の長さに合わせてショットが伸び、話し手の色の字幕が 1 セリフ 1 枚で入る。手本は 1 ショット 1〜2 セリフ、1 秒 6.9 文字、セリフの間 0.24 秒 (`references/narration.md`)。
 
-重ね物: `line` (引きながら描く線) / `polygon` (範囲) / `label` (地図に貼り付く地名、画面に固定の札) / `counter` (大きな数字、数え上げ) / `chapter` (暗くした地形に章見出し) / `note` (右上の「模式図」など) / `subtitle` (下の字幕帯) / `quote` (ニュースの引用カード) / `panel` (写真などの図) / `chart` (線が引かれていく折れ線グラフ) / `sticker` (イラスト) / `base` (昔の空中写真などへの切り替え) / `image` (自分で位置合わせした画像)。
+重ね物: `photo_marker` (写真枠と撮影地点を結ぶ線、詳細は `references/production-workflow.md`) / `line` (引きながら描く線) / `polygon` (範囲) / `label` (地図に貼り付く地名、画面に固定の札) / `counter` (大きな数字、数え上げ) / `chapter` (暗くした地形に章見出し) / `note` (右上の「模式図」など) / `subtitle` (下の字幕帯) / `quote` (ニュースの引用カード) / `panel` (写真などの図) / `chart` (線が引かれていく折れ線グラフ) / `sticker` (イラスト) / `base` (昔の空中写真などへの切り替え) / `image` (自分で位置合わせした画像)。
 
-重ね物はすべて、出てからの秒数で動く (タイプライター、拭い出し、弾み、数え上げ。`references/shots.md` の「動き」)。冒頭 20 秒のダイジェストと、素材 (いらすとや、Wikimedia Commons) の決まりは `references/look.md`。カメラの動きの決め方は `references/look.md` の「カメラ」。要点: 1 ショット 4〜8 秒で、ゆっくり寄るか回り込む。見せたい物を画面の中央より少し上に置く。斜めの角度 (pitch) は 55〜70 度。
+重ね物はすべて、出てからの秒数で動く (タイプライター、拭い出し、弾み、数え上げ。`references/shots.md` の「動き」)。冒頭 20 秒のダイジェストと、素材 (いらすとや、Wikimedia Commons) の決まりは `references/look.md`。カメラの動きの決め方は `references/look.md` の「カメラ」。ショットごとの動きや角度は内容と可読性で選び、静止・広域・俯瞰・写真も交える。遠距離移動を短い台詞の間に詰め込まず、音声付き動画を再生して速度を確認する。
 
 ## 5. 守ること
 
 - 出典を画面に出す。使ったタイルの出典と「音声：VOICEVOX:キャラ名」は自動で右下に入る。足すものは JSON の `credits` に書く (`references/gsi-tiles.md`)。出典を消さない。VOICEVOX のクレジットは概要欄にも書く (`out/<名前>/credits.txt`)。
-- 声の聞こえ方、速さ、読み違いは数字では確かめられない。書き出したら本人に聞いてもらう。
+- 声の聞こえ方、速さ、読み違いとカメラ速度は、実際の動画と音声で確認する。ユーザーが目視確認を求めた場合や判断が必要な場合は確認してもらう。
 - 線・範囲・数字が実際の位置や値でないときは、`note` で「模式図」、`credits` で「位置は概略」と書く。
-- 地理院タイルのサーバーに負荷をかけない。書き出しは同時に 1 本まで。何度も試すときは `--size 1280x720 --stills` で数を減らす。
+- 地理院タイルのサーバーとマシンに負荷をかけない。独立した章は全体を一つの資源制限スコープに入れ、最大3並列を目安に負荷や利用条件に応じて調整する。短い試写では `--size 1280x720 --stills` で数を減らす。
 - 手本の映像の素材 (キャラクター、BGM、ロゴ、字幕の色の組み合わせそのもの) は使わない。真似るのは画の文法だけ。
-- 書き出した動画の公開はユーザーが行う。
+- 公開はユーザーの依頼・継続的な許可に従う。許可済みの配布先が指定されている場合は、版番号付きで配置し、ファイルの一致と応答を確認する。
 
 ## 6. いまの限界
 
@@ -80,3 +82,9 @@ systemd-run --user --scope -q -p MemoryMax=8G -p MemorySwapMax=0 -p CPUQuota=400
 - 3D の建物、断面図、重機などの CG は作らない。手本の映像では、そこは別の 3D ソフトで作っている。
 - `image` は北が上の画像だけ。緯度は線形に当てはめるので、広い範囲 (数十 km 以上) ではずれる。
 - 昔の空中写真のタイルは場所によって抜けがある。全体を見せるには、自分で写真をつなぎ合わせて `image` で貼る。
+
+## 7. シーンごとのカメラ設計
+
+各シーンで視聴者に理解してほしい位置関係・主題・変化を先に決め、候補となる空撮技法を比較して、目的に最も合う技法または組み合わせを選ぶ。無理に複数の動きを重ねず、静止も候補に含める。選んだ技法、主題と周辺ランドマーク、開始・終了構図、動かす理由、必要な素材と実装上の制約をショット設計に残す。繰り返し同じ動きを使う場合も、説明上の理由を確認する。
+
+空撮技法の選択と実装可能性は [references/techniques/drone-camera.md](references/techniques/drone-camera.md)、実際の動きとラベルの点検は [references/camera-and-label-review.md](references/camera-and-label-review.md) を読む。ドローンの実飛行、カメラ位置・高度・画角の独立制御、静止データからの実際の時間経過を、地図カメラの近似表現と混同しない。

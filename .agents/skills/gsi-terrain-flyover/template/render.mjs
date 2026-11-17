@@ -24,8 +24,8 @@ spec.width = w; spec.height = h;
 const fps = Number(opt('fps', spec.fps ?? 30));
 const out = path.resolve(opt('out', path.join('out', path.basename(specPath, '.json'))));
 const stills = opt('stills');
-// frames from an earlier run would leak into the video or the stills sheet
-fs.rmSync(path.join(out, 'frames'), { recursive: true, force: true });
+// Keep every previous render intact; a fresh destination prevents old frames leaking into output.
+if (fs.existsSync(path.join(out, 'frames'))) throw new Error(`output already contains frames: ${out}; choose a new --out directory`);
 fs.mkdirSync(path.join(out, 'frames'), { recursive: true });
 
 // Narration first: it decides how long each shot with "lines" lasts and adds the subtitles.
@@ -51,8 +51,11 @@ const GL = process.env.FLYOVER_GL === 'swiftshader'
   : ['--use-gl=angle', '--use-angle=gl-egl', '--ignore-gpu-blocklist'];
 const browser = await chromium.launch({ env, args: GL });
 const page = await browser.newPage({ viewport: { width: w, height: h }, deviceScaleFactor: 1 });
-page.on('console', (m) => { if (m.type() === 'error') console.error('[page]', m.text()); });
+// Ocean DEM tiles legitimately return 404 and registerGsiDem supplies a flat sea-level tile.
+// The response handler below still reports all other failed requests with their URLs.
+page.on('console', (m) => { if (m.type() === 'error' && !m.text().startsWith('Failed to load resource:')) console.error('[page]', m.text()); });
 page.on('pageerror', (e) => console.error('[page]', e.message));
+page.on('response', (r) => { if (r.status() >= 400 && !(r.status() === 404 && r.url().includes('/xyz/dem_png/'))) console.error(`[http ${r.status()}] ${r.url()}`); });
 await page.goto(`http://127.0.0.1:${port}/page/index.html`);
 await page.waitForFunction(() => window.FLY_READY === true);
 console.log('webgl:', await page.evaluate(() => { const g = document.createElement('canvas').getContext('webgl2'); const d = g && g.getExtension('WEBGL_debug_renderer_info'); return d ? g.getParameter(d.UNMASKED_RENDERER_WEBGL) : String(!!g); }));
@@ -65,10 +68,35 @@ const step = stills ? Number(stills) : 1 / fps;
 const times = [];
 for (let s = from; s < to - 1e-9; s += step) times.push(s);
 let timeouts = 0;
+const collisions = new Map();
 const t0 = Date.now();
 for (let i = 0; i < times.length; i++) {
-  const r = await page.evaluate((s) => window.FLY.frame(s), times[i]);
+  let r = await page.evaluate((s) => window.FLY.frame(s), times[i]);
+  // A transient tile timeout should not leave an incomplete captured frame.
+  if (r === 'timeout') {
+    console.log(`retrying tile load for frame ${i}`);
+    r = await page.evaluate((s) => window.FLY.frame(s), times[i]);
+  }
   if (r === 'timeout') timeouts++;
+  if (args.includes('--check-label-overlap')) {
+    const overlaps = await page.evaluate(() => {
+      const labels = [...document.querySelectorAll('#overlay .o.label')];
+      const others = [...document.querySelectorAll('#overlay .o.reaction, #overlay .o.subtitle, #overlay .o.panel, #overlay .o.photo-marker-card')];
+      const visible = (el) => Number(getComputedStyle(el).opacity) > 0.1;
+      const result = [];
+      for (let a = 0; a < labels.length; a++) for (const b of [...labels.slice(a + 1), ...others]) {
+        const x = labels[a], ra = x.getBoundingClientRect(), rb = b.getBoundingClientRect();
+        if (visible(x) && visible(b) && Math.min(ra.right, rb.right) - Math.max(ra.left, rb.left) > 2 &&
+            Math.min(ra.bottom, rb.bottom) - Math.max(ra.top, rb.top) > 2)
+          result.push([x.textContent.trim(), b.classList.contains('label') ? b.textContent.trim() : b.className]);
+      }
+      return result;
+    });
+    for (const pair of overlaps) {
+      const key = JSON.stringify(pair);
+      if (!collisions.has(key)) collisions.set(key, times[i]);
+    }
+  }
   // JPEG, not PNG: PNG encoding of a 1920x1080 screenshot took 428 ms of one CPU core per frame
   // (the GPU drawing and tile wait took 37 ms); JPEG q95 takes about 55 ms.
   await page.screenshot({ path: path.join(out, 'frames', String(i).padStart(5, '0') + '.jpg'), type: 'jpeg', quality: 95 });
@@ -78,6 +106,7 @@ process.stdout.write(`\r${times.length}/${times.length} frames, ${((Date.now() -
 await browser.close();
 server.close();
 if (timeouts) console.error(`warning: ${timeouts} frame(s) were captured before all tiles loaded`);
+for (const [pair, sec] of collisions) console.error(`warning: label overlap at ${sec.toFixed(2)}s: ${pair}`);
 
 if (stills) {
   const sheet = path.join(out, 'stills.jpg');
@@ -90,6 +119,10 @@ if (stills) {
   const ff = ['-v', 'error', '-y', '-framerate', String(fps), '-i', path.join(out, 'frames', '%05d.jpg')];
   let audio = [];
   if (narration.wav && !partial) {
+    if (args.includes('--raw-audio')) {
+      ff.push('-i', narration.wav);
+      audio = ['-map', '0:v', '-map', '1:a', '-c:a', 'aac', '-b:a', '192k', '-ar', '48000', '-ac', '2'];
+    } else {
     // Voice (+ BGM, lowered and looped) mixed, then normalized to -14 LUFS (YouTube) in two passes:
     // one-pass loudnorm landed at -15.0 LUFS on a 16 s test clip.
     const inputs = ['-i', narration.wav];
@@ -105,6 +138,7 @@ if (stills) {
     const second = `loudnorm=${target}:measured_I=${j.input_i}:measured_TP=${j.input_tp}:measured_LRA=${j.input_lra}:measured_thresh=${j.input_thresh}:offset=${j.target_offset}:linear=true`;
     ff.push(...inputs);
     audio = ['-filter_complex', `${mixFilter(1, 2)},${second}[a]`, '-map', '0:v', '-map', '[a]', '-c:a', 'aac', '-b:a', '192k', '-ar', '48000', '-ac', '2'];  // stereo: some players drop or one-side mono AAC
+    }
   } else if (narration.wav) {
     console.error('note: --from/--to renders the picture only (no audio)');
   }

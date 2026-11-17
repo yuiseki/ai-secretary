@@ -32,7 +32,7 @@
 | `lines` | セリフ `[{ "voice", "text", "speech" }]` (`narration.md`) |
 | `from` / `to` | カメラ。`center` [経度, 緯度]、`zoom`、`pitch` (0〜85 度)、`bearing` (北が 0、時計回り) |
 | `keys` | 途中を通るとき: `[{ "t": 0, ...カメラ }, { "t": 0.5, ... }, { "t": 1, ... }]`。`from`/`to` の代わり |
-| `ease` | `inOut` (既定) / `linear` / `in` / `out`。ショット全体にかかる |
+| `ease` | `inOut` (既定) / `smooth` / `linear` / `in` / `out`。ショット全体にかかる |
 | `tint` | 地形を暗くする量 (0〜1)。`chapter` を置くと自動で 0.55 |
 | `overlays` | 重ね物の配列 |
 
@@ -95,3 +95,23 @@ bearing は近い向きに回る (350 度 → 10 度は 20 度だけ回る)。
 | `subtitle` | 少し下から上がる | |
 
 `show` の終わりが 1 未満なら、その時刻に向けて 0.3 秒で抜ける。1 なら次のショットへのカットで終わる。
+
+## 写真と地名の追加機能
+
+`osmLabels: true` で `tile.yuiseki.net` の現代の地名を重ねる。出典は自動表示される。歴史的写真と組み合わせる際は現代の地名であると明示する。`photo_marker`、EXIF、撮影地点を指す線、ラベルの衝突回避と動画での確認方法は [production-workflow.md](production-workflow.md) と [camera-and-label-review.md](camera-and-label-review.md) を参照する。
+
+```json
+{
+  "type": "photo_marker",
+  "src": "assets/photo.jpg",
+  "caption": "写真に写るものの説明",
+  "credit": "写真：撮影者名（利用条件）",
+  "screen": [70, 80], "width": 760, "height": 650,
+  "at": [135.5027289, 34.6692927], "targetLabel": "",
+  "cameraAt": [135.5014261, 34.6691062], "cameraLabel": "写っている地物",
+  "cameraLabelAnchor": "start", "cameraLabelOffset": [20, 45],
+  "show": [0, 1]
+}
+```
+
+上の座標はスキーマを説明する例であり、実際の写真と対応づけてはならない。`at` は枠からの線の行き先となる撮影地点、`cameraAt` は写真に写る地物の位置という既存キー名である。写真と関係がない地点を `cameraAt` に入れない。写真が現物の撮影場所を示すものか、空撮やイメージなのか確認する。

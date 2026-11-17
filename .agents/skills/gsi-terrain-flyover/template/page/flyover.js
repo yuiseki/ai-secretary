@@ -163,6 +163,7 @@ function buildStyle() {
   const ov = overlayLayers(spec.shots);
   return {
     version: 8,
+    ...(spec.osmLabels ? { glyphs: 'https://tile.yuiseki.net/fonts/{fontstack}/{range}.pbf' } : {}),
     sources: {
       base: rasterSource(base),
       // the same photo capped at z12, drawn underneath: fills open sea where the detailed tiles have no picture
@@ -171,6 +172,7 @@ function buildStyle() {
       dem: { type: 'raster-dem', tiles: dem.tiles, tileSize: 256, maxzoom: dem.maxzoom, encoding: 'terrarium' },
       // a second source for the hillshade: MapLibre warns that sharing the terrain source lowers quality
       demshade: { type: 'raster-dem', tiles: dem.tiles, tileSize: 256, maxzoom: dem.maxzoom, encoding: 'terrarium' },
+      ...(spec.osmLabels ? { osm: { type: 'vector', url: 'https://tile.yuiseki.net/data/v3.json' } } : {}),
       ...ov.sources,
     },
     layers: [
@@ -182,13 +184,33 @@ function buildStyle() {
       ...ov.baseLayers,
       ...(spec.hillshade === false ? [] : [{ id: 'shade', type: 'hillshade', source: 'demshade',
         paint: { 'hillshade-exaggeration': spec.hillshade ?? 0.25, 'hillshade-shadow-color': '#0a1020', 'hillshade-highlight-color': '#ffffff' } }]),
+      ...(spec.osmLabels ? osmLabelLayers() : []),
       ...ov.layers,
     ],
     terrain: { source: 'dem', exaggeration: spec.exaggeration ?? 1.3 },
     sky: spec.sky ?? { 'sky-color': '#6f9fd6', 'horizon-color': '#dce8f5', 'fog-color': '#c9d8e8',
       'sky-horizon-blend': 0.6, 'horizon-fog-blend': 0.7, 'fog-ground-blend': 0.85, 'atmosphere-blend': 0 },
-    credits: [base.credit, ...(world ? [world.credit] : []), ...ov.credits, dem.credit],
+    credits: [base.credit, ...(world ? [world.credit] : []), ...ov.credits, dem.credit,
+      ...(spec.osmLabels ? ['地名：© OpenStreetMap contributors / OpenMapTiles（現代の地名）'] : [])],
   };
+}
+
+// Labels are current OSM data even when the background is a historic photograph.
+function osmLabelLayers() {
+  const text = ['coalesce', ['get', 'name:ja'], ['get', 'name'], ['get', 'name_en']];
+  const paint = { 'text-color': '#ffffff', 'text-halo-color': '#192438', 'text-halo-width': 2,
+    'text-halo-blur': 0.5 };
+  const layout = { 'text-field': text, 'text-font': ['Noto Sans Regular'], 'text-max-width': 9 };
+  return [
+    { id: 'osm-place', type: 'symbol', source: 'osm', 'source-layer': 'place', minzoom: 9,
+      filter: ['in', ['get', 'class'], ['literal', ['city', 'town', 'suburb', 'island']]],
+      layout: { ...layout, 'text-size': ['interpolate', ['linear'], ['zoom'], 10, 16, 15, 22] }, paint },
+    { id: 'osm-water', type: 'symbol', source: 'osm', 'source-layer': 'waterway', minzoom: 12,
+      layout: { ...layout, 'symbol-placement': 'line', 'text-size': 18 }, paint },
+    { id: 'osm-station', type: 'symbol', source: 'osm', 'source-layer': 'poi', minzoom: 13,
+      filter: ['==', ['get', 'class'], 'rail'],
+      layout: { ...layout, 'text-size': 18 }, paint },
+  ];
 }
 
 function settle(timeoutMs = 40000) {
@@ -310,12 +332,39 @@ function drawMotion(o, ph, t, a, setTint) {
       `<span class="q"><span>${esc(chars.slice(0, n).join(''))}</span><span class="rest">${esc(chars.slice(n).join(''))}</span></span>`,
       { left: x + 'px', top: y + 'px', width: (o.width ?? 760) + 'px', opacity: inn(0.25) * out,
         transform: `translateX(${-(1 - outCubic(inn(0.45))) * 80 - leave * 60}px)` });
+  } else if (o.type === 'photo_marker') {
+    // Screen-space connector is recomputed after every camera movement.
+    const [x, y] = o.screen ?? [80, 80];
+    const w = o.width ?? 750, h = o.height ?? 590;
+    const target = map.project(o.at), tx = target.x / scale(), ty = target.y / scale();
+    const camera = o.cameraAt ? map.project(o.cameraAt) : null;
+    const cx = camera ? camera.x / scale() : 0, cy = camera ? camera.y / scale() : 0;
+    const [cameraDx, cameraDy] = o.cameraLabelOffset ?? [-20, -16];
+    const bridge = o.bridgeAt ? map.project(o.bridgeAt) : null;
+    const bx = bridge ? bridge.x / scale() : 0, by = bridge ? bridge.y / scale() : 0;
+    const sx = x + w, sy = y + h * 0.58;
+    const mx = sx + (tx - sx) * 0.42;
+    const marker = `<circle cx="${tx}" cy="${ty}" r="15" fill="#ffbf45" stroke="#172338" stroke-width="5"/>` +
+      `<text x="${tx + 24}" y="${ty + 8}" class="marker-label">${esc(o.targetLabel ?? '')}</text>`;
+    const shotMarker = camera ? `<circle cx="${cx}" cy="${cy}" r="9" fill="#67e1dc" stroke="#172338" stroke-width="4"/>` +
+      `<text x="${cx + cameraDx}" y="${cy + cameraDy}" text-anchor="${o.cameraLabelAnchor === 'start' ? 'start' : 'end'}" class="marker-label small">${esc(o.cameraLabel ?? '')}</text>` : '';
+    const bridgeMarker = bridge ? `<circle cx="${bx}" cy="${by}" r="8" fill="#f6a8ff" stroke="#172338" stroke-width="4"/>` +
+      `<text x="${bx + 18}" y="${by - 55}" class="marker-label small">${esc(o.bridgeLabel ?? '')}</text>` : '';
+    el('photo-connector', `<svg viewBox="0 0 1920 1080"><path d="M ${sx} ${sy} L ${mx} ${sy} L ${tx} ${ty}" class="connector"/>${marker}${shotMarker}${bridgeMarker}</svg>`,
+      { left: '0px', top: '0px', opacity: inn(0.25) * out });
+    el('photo-marker-card', `<div class="photo-caption">${esc(o.caption ?? '')}</div>` +
+      `<img src="/${esc(o.src.replace(/^\/+/, ''))}"><div class="photo-credit">${esc(o.credit ?? '')}</div>`,
+      { left: x + 'px', top: y + 'px', width: w + 'px', height: h + 'px', opacity: inn(0.25) * out });
   } else if (o.type === 'panel') {
     const [x, y] = o.screen ?? [1090, 150];
     const wipe = 100 * (1 - outCubic(inn(0.55)));
-    const zoom = 1.06 - 0.06 * outCubic(inn(1.2)) + 0.03 * clamp01(ph.since / 12);
+    const [start, end] = o.show ?? [0, 1];
+    const p = clamp01((t - start) / Math.max(0.001, end - start));
+    const zoom = o.motion === 'still' ? 1 : o.motion === 'out' ? 1.10 - 0.08 * p : o.motion === 'in' ? 1.02 + 0.08 * p :
+      1.06 - 0.06 * outCubic(inn(1.2)) + 0.03 * clamp01(ph.since / 12);
+    const shiftY = o.motion === 'up' ? 12 - 24 * p : o.motion === 'down' ? -12 + 24 * p : 0;
     el('panel', (o.caption ? `<span class="cap" style="opacity:${inn(0.3, 0.25)}">${esc(o.caption)}</span>` : '') +
-      `<span class="frame"><img src="/${esc(o.src.replace(/^\/+/, ''))}" style="transform:scale(${zoom})"></span>` +
+      `<span class="frame"><img src="/${esc(o.src.replace(/^\/+/, ''))}" style="transform:translateY(${shiftY}px) scale(${zoom})"></span>` +
       (o.credit ? `<span class="cr" style="opacity:${inn(0.3, 0.4)}">${esc(o.credit)}</span>` : ''),
       { left: x + 'px', top: y + 'px', width: (o.width ?? 720) + 'px', opacity: out, clipPath: `inset(0 ${wipe}% 0 0)` });
   } else if (o.type === 'chart') {
