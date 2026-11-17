@@ -20,6 +20,8 @@ SKILL.mdのフェーズ1を、Marpで実際に回したときに分かったこ�
 
 ## Marpの罠
 
+- 日本語は単語の途中で折り返される。原稿は直さず、書き出す前に BudouX(`uv run --with budoux`)で文節の切れ目に `<wbr>` を入れた中間ファイルを作り、テーマに `word-break: keep-all; overflow-wrap: anywhere;` を足す。表のセルは `overflow-wrap: normal`、コードは `white-space: nowrap` にして単語やスキル名の途中で折れないようにする。見出しに `<wbr>` が入ると `<title>` に文字のまま出るので、front matter に `title:` を書く。
+
 - 本文の行の直後に `---` を置くと、区切りではなく見出し(setext)になり、2枚が1枚に結合する。`---` の前後には必ず空行を入れる。
 - 既定のテーマは縦中央に寄せる。表紙以外は `section:not(.title) { place-content: start stretch; }` で上詰めにする。
 - `<!-- _style: ... -->` は効かないことがある。収まらないときは表の行をまとめる。
