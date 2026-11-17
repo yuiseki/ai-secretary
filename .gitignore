@@ -38,3 +38,6 @@ remotion-*
 .agents/skills/feed-news-video/*
 
 
+
+# Upstream skill repositories cloned for their tools and themes (update with git pull)
+.agents/skill-repos/
