@@ -20,6 +20,13 @@
       "computedHash": "40683c3c92259a33ba7e52cd5c65311de55103a4c9275ab832408704a6b6e81b",
       "commit": "840bd400cbcb64c8b64d492a144da54fc05776c5"
     },
+    "nihongo": {
+      "source": "AnIT012/nihongo",
+      "commit": "82c60760cd1c77f4c106b03dec6c22e86f70aa56",
+      "sourceType": "github",
+      "skillPath": "nihongo/SKILL.md",
+      "computedHash": "3b233a33b6e369c6d00f3bab229dcb89ca49caaf7c6d138fd929a0b3516ea61a"
+    },
     "print3d": {
       "source": "mfranzon/print3d",
       "ref": "main",
