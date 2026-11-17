@@ -67,7 +67,7 @@ AIの提案は二種類ある。見つけた現物と、そこから立てた仮
 
 話の捉え方は発表者のものにする。発表者が流れや核のメッセージを示したら、それに従う。AIがもっと良いと思う構成があっても、提案として一つ出し、判定を受ける。
 
-書いたら全スライドを画像に書き出して見る。崩れはソースを読んでも分からない。版ごとに控えを残す。作り方の具体的な注意は [references/deck-building.md](references/deck-building.md) にある。
+書いたら全スライドを画像に書き出して見る。崩れはソースを読んでも分からない。版ごとに控えを残す。作り方の具体的な注意は [references/deck-building.md](references/deck-building.md) にある。自分の案を書いたあとの点検には [references/lessons-from-consulting-pptx-skill.md](references/lessons-from-consulting-pptx-skill.md)(繰り返し、タイトルの数、各ページの目的など)を使う。
 
 ## フェーズ2: 事前信念で問い詰めて、重要な信号を突き止める
 
