@@ -7,12 +7,6 @@
       "skillPath": "skills/colab-operator/SKILL.md",
       "computedHash": "5de5734eb02534355df0d0e90bb67764bc9df054120fb82837826e3addd2edfe"
     },
-    "consulting-pptx-skill": {
-      "source": "carnot-tech/consulting-pptx-skill",
-      "sourceType": "github",
-      "skillPath": "SKILL.md",
-      "computedHash": "87eb122a69ef7e919a40925758fbe2b23fab498559e52d1ce8963d9ef5bfc5e4"
-    },
     "hallmark": {
       "source": "nutlope/hallmark",
       "sourceType": "github",
