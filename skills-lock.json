@@ -1,71 +1,94 @@
 {
-  "version": 1,
+  "version": 2,
   "skills": {
     "colab-operator": {
       "source": "googlecolab/google-colab-cli",
       "sourceType": "github",
       "skillPath": "skills/colab-operator/SKILL.md",
-      "computedHash": "cb4cff216ea6453d3b0e1d0ade1aa2d79ae4f8a938dbc39095eea1ad451bf292"
+      "computedHash": "5de5734eb02534355df0d0e90bb67764bc9df054120fb82837826e3addd2edfe"
     },
     "consulting-pptx-skill": {
       "source": "carnot-tech/consulting-pptx-skill",
       "sourceType": "github",
       "skillPath": "SKILL.md",
-      "computedHash": "68a5cffdf9f032d51df5d44f8dec284ce3b30f5f4614cc4b2d8a3cca29e5918c"
+      "computedHash": "87eb122a69ef7e919a40925758fbe2b23fab498559e52d1ce8963d9ef5bfc5e4"
     },
     "hallmark": {
       "source": "nutlope/hallmark",
       "sourceType": "github",
       "skillPath": "skills/hallmark/SKILL.md",
-      "computedHash": "32269cfda7e467ba1e2534428a1186c1b7b28d196d0f3b3227d293512fa5f7ec"
+      "computedHash": "c496282cad6476d43e3438e85a8cf5f3c0b69b50e69ba0ca4a542155e95db7cb"
     },
     "natural-japanese": {
       "source": "coji/natural-japanese",
       "sourceType": "github",
       "skillPath": "skills/natural-japanese/SKILL.md",
-      "computedHash": "e01282f5c90f9ce5385069af7cf164bc6078c110233b4631f58df32d3c81897e"
+      "computedHash": "40683c3c92259a33ba7e52cd5c65311de55103a4c9275ab832408704a6b6e81b",
+      "commit": "840bd400cbcb64c8b64d492a144da54fc05776c5"
     },
     "print3d": {
       "source": "mfranzon/print3d",
       "ref": "main",
       "sourceType": "github",
       "skillPath": "src/print3d/skill/SKILL.md",
-      "computedHash": "b046346a0051bab2e49967ae93669bdb5800679225cb8d06d3731d4ade7c5dbf"
+      "computedHash": "3b65975cdb5af99e1327c9ff3af214fe3432f9f7ecba48c9d45fe36ef2558edb"
     },
     "remotion-best-practices": {
       "source": "remotion-dev/skills",
       "sourceType": "github",
-      "computedHash": "a2ebe92433006ce81bbdcfe24984663678bbbb20991a3686e34814de1097c44c"
+      "computedHash": "0eac2aa55e40c976dba642918fddde53308b053e7ae5cd42339810d2e8ada6f6"
     },
     "security-audit": {
       "source": "cloudflare/security-audit-skill",
       "sourceType": "github",
       "skillPath": "skills/security-audit/SKILL.md",
-      "computedHash": "98b97aad2873b3b9a8e064007c25e7827b493ba27fda8bfbdb41dab586767973"
+      "computedHash": "8513eb3b2c39b8d05ef4f47b32ef4d18280b93a5efb91d8df6272f7435034af5"
+    },
+    "slide-design-dark": {
+      "source": "minorun365/minorun-marp-skill",
+      "commit": "fa9118e3c9de951aa872cd973cb53d1e99c257fd",
+      "sourceType": "github",
+      "skillPath": "skills/slide-design-dark/SKILL.md",
+      "computedHash": "21d98ef023ab2b5fbc168d2d92d2a3e7b963d1be932474c50094b034b4248a2e"
+    },
+    "slide-figures": {
+      "source": "minorun365/minorun-marp-skill",
+      "commit": "fa9118e3c9de951aa872cd973cb53d1e99c257fd",
+      "sourceType": "github",
+      "skillPath": "skills/slide-figures/SKILL.md",
+      "computedHash": "00b55809f017f8b69766f634687a08d5c64b5af901abc6c747e45696239ee811"
+    },
+    "slide-story": {
+      "source": "minorun365/minorun-marp-skill",
+      "commit": "fa9118e3c9de951aa872cd973cb53d1e99c257fd",
+      "sourceType": "github",
+      "skillPath": "skills/slide-story/SKILL.md",
+      "computedHash": "71464470c258ac5b49d96e8b3b6ce0ce2c28be9e42e05a2ee420c0b01faa278f"
     },
     "stop-describing-ui": {
       "source": "artouc/stop-describing-ui",
       "sourceType": "github",
       "skillPath": "skills/stop-describing-ui/SKILL.md",
-      "computedHash": "ad8da9645ed5b9f01398582e1b9388250f900b73a8960be3a4bd1be183761005"
+      "computedHash": "2412dcf96fb705159a157bce1efce2034b7c06649f254d9f778868b409ac110e"
     },
     "typesafe-ai": {
       "source": "typesafe-ai/skills",
       "sourceType": "github",
       "skillPath": "skills/typesafe-ai/SKILL.md",
-      "computedHash": "9cd84c5e535dec8dec59917c110f9c00b4a61faadb86b432ec7e41051170af12"
+      "computedHash": "e2d1f6d68a1a79d44d401b9c6ba1afa042b14787ea8fdb0c78b8ff5f4740db80"
     },
     "video-editing": {
       "source": "affaan-m/ecc",
       "sourceType": "github",
       "skillPath": "skills/video-editing/SKILL.md",
-      "computedHash": "f44c45ed71dec68cf955a316577ddd191248d0c607118c89ffc10f9f3f1ea3a0"
+      "computedHash": "497b4dc71e7e65dd8b7cf7b78f49ba2dfe63a74a1c79b05daa1dab52af86cd10"
     },
     "yomiyasu": {
       "source": "nanaism/yomiyasu",
       "sourceType": "github",
       "skillPath": "skills/yomiyasu/SKILL.md",
-      "computedHash": "f45a6586b47b539db151b18cab28687cc6541650b07e577976211a87919086c7"
+      "computedHash": "713c7534b4d2d81048d604e2729e5e7306a78da9f5831377b4904a5c7694507a",
+      "commit": "db78b9bc5e868549b517a037df7a4d1c93edac23"
     }
   }
 }

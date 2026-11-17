@@ -7,6 +7,7 @@
 
 node_modules/
 .pnpm-store/
+.codex-attachments/
 
 .playwright-cli/
 __pycache__/
