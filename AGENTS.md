@@ -52,3 +52,7 @@ When meaningful work is completed in this repository, append a short activity en
 
 - `source ~/.config/yuiclaw/.env; amem keep "<what was done>" --kind activity --source <codex|gemini|agy|claude>`
 - Load `~/.config/yuiclaw/.env` before `amem keep` so Discord mirroring via `acomm --discord --agent` can work when configured.
+
+## ~/Workspaces/tmp/ に関するルール（最優先）
+
+- /home/yuiseki/Workspaces/tmp/README.md を熟読せよ
